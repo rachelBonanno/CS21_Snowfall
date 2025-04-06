@@ -3,6 +3,8 @@ import time
 import json
 # rhythm game
 
+
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((1080, 720))
@@ -92,3 +94,7 @@ def accuracy(note, currenttime, key):
     # figure out delay
 if __name__ == "__main__":
     main()
+
+# accuracy on client 
+# sends to server
+# servers sends back score 

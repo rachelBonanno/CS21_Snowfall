@@ -1,0 +1,20 @@
+{
+    "notes": [
+        { "id": 0, "time": 500, "lane": 1 },
+        { "id": 1, "time": 1000, "lane": 2 },
+        { "id": 2, "time": 1500, "lane": 3 },
+        { "id": 3, "time": 2000, "lane": 4 },
+        { "id": 4, "time": 2500, "lane": 5 },
+        { "id": 5, "time": 3000, "lane": 6 },
+        { "id": 6, "time": 3500, "lane": 7 },
+        { "id": 7, "time": 4000, "lane": 8 },
+        { "id": 8, "time": 4500, "lane": 1 },
+        { "id": 9, "time": 5000, "lane": 2 },
+        { "id": 10, "time": 5500, "lane": 3 },
+        { "id": 11, "time": 6000, "lane": 4 },
+        { "id": 12, "time": 6500, "lane": 5 },
+        { "id": 13, "time": 7000, "lane": 6 },
+        { "id": 14, "time": 7500, "lane": 7 },
+        { "id": 15, "time": 8000, "lane": 8 }
+    ]
+}
