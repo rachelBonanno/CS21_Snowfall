@@ -33,7 +33,7 @@ def main():
 
 
     # Receive a response from the server
-    data = s.recv(1024)
+    data = server_socket.recv(1024)
     print('Received', repr(data.decode()))
 
     # Close the connection
