@@ -74,16 +74,37 @@ def main():
 def connect_client(clients, client, clients_lock, future_time):
     # receive name from client
     # store this better
-    client_name = recv_data(client, 32).decode('utf-8').strip()
+
+    print("Asking for client name")
+    client.send(b"Retrieving client name...")
+
+    # Receive the length of the name (4 bytes)
+    name_length = struct.unpack("!I", recv_data(client, 4))[0]
+
+    # Receive the name based on the length
+    client_name = recv_data(client, name_length).decode('utf-8').strip()
+
     with clients_lock:
         clients[client] = client_name
-    
+        print("This player has joined!:", client_name)
+        
     client.send(b"Connection Established")
 
-    # Send the future time to the client
-    client.sendall(future_time)  # Ensure all bytes are sent
+    # Wait for the client to acknowledge the connection
+    ack = recv_data(client, 3).decode('utf-8').strip()
+    if ack != "ACK":
+        print("Client did not acknowledge connection!", file=sys.stderr)
+        return
 
-    # this was crashing bc the clients were dc'd before we sent this
+    # Send the future time to the client
+    client.send(future_time)  # Ensure all bytes are sent
+
+    # Wait for the client to acknowledge the future time
+    ack = recv_data(client, 3).decode('utf-8').strip()
+    if ack != "ACK":
+        print("Client did not acknowledge future time!", file=sys.stderr)
+
+    # onwards to gameplay
 
 
 

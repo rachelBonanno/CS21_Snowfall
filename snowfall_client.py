@@ -1,6 +1,7 @@
 import socket
 import argparse
 import sys
+import struct
 
 
 # i am a client
@@ -28,13 +29,30 @@ def main():
     except socket.error as e:
         print(f"Error connecting to server at {host}:{port}: {e}", file=sys.stderr)
 
-    # Send name to the server
-    server_socket.send(name.encode())
+    # Receive connection response from server
+    data = server_socket.recv(1024) 
+    if data:
+        print(f"Received: {data.decode()}")
 
+    # Send name length and name to the server
+    name_bytes = name.encode()
+    server_socket.send(struct.pack("!I", len(name_bytes)))  
+    server_socket.send(name_bytes)  
 
-    # Receive a response from the server
-    data = server_socket.recv(1024)
-    print('Received', repr(data.decode()))
+    # Receive acknowledgment for connection
+    data = server_socket.recv(1024)  
+    if data:
+        print(f"Received: {data.decode()}")
+    server_socket.send(b"ACK")
+
+    # Receive the future time from the server
+    data = server_socket.recv(8)  
+    if data:
+        future_time = struct.unpack("!d", data)[0]
+        print(f"Received future time: {future_time}")
+    server_socket.send(b"ACK")
+
+    # gameplay time
 
     # Close the connection
     server_socket.close()
