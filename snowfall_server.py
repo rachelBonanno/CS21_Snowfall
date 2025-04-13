@@ -109,18 +109,28 @@ def connect_client(clients, client, clients_lock, future_time):
 
 
 def gameplay(client, server):
+    olddata = b"a"
+    throlddata = b"b"
     while True:
         try:
             # receive data from one of the clients
-            length = struct.unpack("!I", recv_data(client, 4))[0]
+            len_data = recv_data(client, 4)
+            if not len_data:
+                break  # Client disconnected
+            length = struct.unpack("!I", len_data)[0]
             data = recv_data(client, length)
+            if (throlddata == data and olddata == data):
+                print("two in a row")
+            print(data)
+            throlddata = olddata
+            olddata = data
 
-            note = data.decode('utf-8')
-            # {time, lane, id, judgment}
-            server.receive_note(note)
+            # note = data.decode('utf-8')
+            # # {time, lane, id, judgment}
+            # server.receive_note(note)
 
 
-            client.send(data) 
+            # client.send(data) 
 
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)

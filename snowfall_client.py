@@ -2,6 +2,10 @@ import socket
 import argparse
 import sys
 import struct
+import time
+from gamestate import Gamestate
+from stats import Stats
+from client import Client
 
 
 # i am a client
@@ -52,7 +56,17 @@ def main():
         print(f"Received future time: {future_time}")
     server_socket.send(b"ACK")
 
+    client = Client(name=name, gamestate=Gamestate.empty_gamestate(), stats=Stats.empty_stats(), starttime=future_time)
+    client.client_init()
     # gameplay time
+    # while True:
+    #     if int(round(time.time()*1000)) % 16 == 0:
+    #         print(round(time.time()*1000))
+    #         bytes = 15
+    #         server_socket.send(struct.pack("!I", bytes))
+    #         server_socket.send(f"{name}Hello, server!".encode()) 
+    #         # wait for a hundredth of a second
+    #         time.sleep(0.01)
 
     # Close the connection
     server_socket.close()
