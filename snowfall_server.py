@@ -42,7 +42,10 @@ def main():
 
     # connecting clients
     clients = {}
-    while len(clients) < 1: # change back to 2 later
+    client_names = {}
+    client_threads = []
+
+    while len(clients) < 2: 
         client_socket, client_address = server_socket.accept()
         print(f"Accepted connection from {client_address}")
         clients[client_socket] =  ""
