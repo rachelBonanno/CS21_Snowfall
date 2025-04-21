@@ -41,7 +41,7 @@ def main():
 
     # connecting clients
     clients = {}
-    while len(clients) < 2:
+    while len(clients) < 1: # change back to 2 later
         client_socket, client_address = server_socket.accept()
         print(f"Accepted connection from {client_address}")
         clients[client_socket] =  ""
@@ -114,21 +114,28 @@ def gameplay(client, server):
     while True:
         try:
             # receive data from one of the clients
+            print("before finding the length")
             len_data = recv_data(client, 4)
+            print("after finding the length")
             if not len_data:
                 break  # Client disconnected
             length = struct.unpack("!I", len_data)[0]
+            print("before parsing the data")
             data = recv_data(client, length)
+            print("after parsing the data")
             if (throlddata == data and olddata == data):
                 print("two in a row")
             print(data)
             throlddata = olddata
             olddata = data
 
-            # note = data.decode('utf-8')
-            # # {time, lane, id, judgment}
-            # server.receive_note(note)
-
+            note_data = data.decode('utf-8')
+            # name, note_id, judgment
+            print(note_data)
+            # parse the note data
+            # note = note_data.split(",")
+            # print(note)
+            # server.receive_note(note_data)
 
             # client.send(data) 
 
@@ -142,11 +149,19 @@ def gameplay(client, server):
 def recv_data(client, length):
     # receive data from the client
     data = b""
+    print(f"Receiving {length} bytes of data...")
+    print(data)
     while len(data) < length:
+        print("before packets")
         packet = client.recv(length - len(data))
+        print("after packets")
         if not packet:
+            print("before break")
             break
+        print("before data +=")
         data += packet
+        print("after data +=")
+    print("outside of while")
     return data
 
 

@@ -68,6 +68,29 @@ def main():
     #         # wait for a hundredth of a second
     #         time.sleep(0.01)
 
+    # Monitor gamestate for changes and send updates to the server
+    # previous_id = None
+
+    # while True:
+    #     # Check if the recent_id has changed
+    #     if client.gamestate.recent_id != previous_id:
+    #         # Update the previous_id to the new value
+    #         previous_id = client.gamestate.recent_id
+
+    #         # Get the recent_id and recent_judgment
+    #         recent_id = client.gamestate.recent_id
+    #         recent_judgment = client.gamestate.recent_judgment
+
+    #         # Prepare the data to send
+    #         data_to_send = f"{name}, {recent_id}, {recent_judgment}".encode()
+
+    #         # Send the length of the data followed by the data itself
+    #         server_socket.send(struct.pack("!I", len(data_to_send)))
+    #         server_socket.send(data_to_send)
+    #     else:
+    #         break
+    
+
     # Close the connection
     server_socket.close()
 
