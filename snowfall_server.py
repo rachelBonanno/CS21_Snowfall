@@ -42,7 +42,7 @@ def main():
 
     # connecting clients
     clients = {}
-    while len(clients) < 2:
+    while len(clients) < 1: # change back to 2 later
         client_socket, client_address = server_socket.accept()
         print(f"Accepted connection from {client_address}")
         clients[client_socket] =  ""
@@ -178,11 +178,19 @@ def gameplay(clients, server):
 def recv_data(client, length):
     # receive data from the client
     data = b""
+    print(f"Receiving {length} bytes of data...")
+    print(data)
     while len(data) < length:
+        print("before packets")
         packet = client.recv(length - len(data))
+        print("after packets")
         if not packet:
+            print("before break")
             break
+        print("before data +=")
         data += packet
+        print("after data +=")
+    print("outside of while")
     return data
 
 

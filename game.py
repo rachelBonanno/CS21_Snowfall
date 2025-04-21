@@ -2,7 +2,7 @@ import pygame
 import time
 import json
 # rhythm game
-
+# this file is not being used and the needed code is not in client.py
 
 
 def main():

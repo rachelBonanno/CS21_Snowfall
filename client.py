@@ -67,7 +67,9 @@ class Client:
                     pygame.draw.circle(self.screen, (255, 255, 255), (x_position, int(y_position)), 10)
                 if y_position > 700:
                     print('miss')
-                    note['judgment'] = "No Credit"
+                    self.gamestate.recent_id = note['id']
+                    self.gamestate.recent_judgment = "No Credit"
+                    note['judgment'] = self.gamestate.recent_judgment
             
             for event in pygame.event.get():
                 key = 0
@@ -97,9 +99,10 @@ class Client:
                             continue # player hit wrong key, nws tho
                         acc = accuracy(current_note, elapsed_time, key)
                         self.gamestate.recent_judgment = norman(acc)
+                        self.gamestate.recent_id = current_note['id']
                         if acc > 0:
                             current_note['judgment'] = self.gamestate.recent_judgment
-                        print(current_note) # I think we send this note to the server
+                        print(current_note)
 
                 if event.type == pygame.QUIT:
                     pygame.quit()
