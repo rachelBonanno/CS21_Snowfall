@@ -37,6 +37,10 @@ class Client:
         self.gamestate = gamestate
         self.stats = stats
         self.starttime = starttime
+        self.server_socket = None # Will be set from the main client script
+
+    def set_socket(self, server_socket):
+        self.server_socket = server_socket
 
     def client_init(self):
         while time.time() < self.starttime:
@@ -107,6 +111,16 @@ class Client:
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     return
+                
+            # Example: Send a message periodically from the Pygame loop (optional now)
+            # if self.server_socket and int(round(time.time() * 1000)) % 1000 == 0:
+            #     message = "Hello from Pygame".encode('utf-8')
+            #     try:
+            #         self.server_socket.sendall(struct.pack("!I", len(message)))
+            #         self.server_socket.sendall(message)
+            #     except socket.error as e:
+            #         print(f"{self.name}: Error sending from Pygame: {e}")
+            
             font = pygame.font.Font(None, 36)
             text = font.render(self.gamestate.recent_judgment, True, (255, 255, 255))
             self.screen.blit(text, (50, 50))
@@ -115,3 +129,4 @@ class Client:
             # print("wahoo")
             
             pygame.draw.line(self.screen, (255, 255, 255), (0, 600), (1080, 600), 5)
+            time.sleep(0.016) # Limit frame rate

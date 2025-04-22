@@ -7,6 +7,7 @@ from gamestate import Gamestate
 from stats import Stats
 from client import Client
 import threading
+import pickle
 
 # i am a client
 
@@ -56,16 +57,21 @@ def main():
         print(f"Received future time: {future_time}")
     server_socket.send(b"ACK")
 
-    client = Client(name=name, gamestate=Gamestate.empty_gamestate(), stats=Stats.empty_stats(), starttime=future_time)
-    client.client_init()
-    # gameplay time
+    client_game = Client(name=name, gamestate=Gamestate.empty_gamestate(), stats=Stats.empty_stats(), starttime=future_time)
+    client_game.set_socket(server_socket)  
 
+    # gameplay time
+    
     # Start threads for sending and receiving messages
-    receive_thread = threading.Thread(target=receive_messages, args=[server_socket, name])
+    receive_thread = threading.Thread(target=receive_messages, args=[server_socket, name, client_game])
     send_thread = threading.Thread(target=send_messages, args=[server_socket, name])
+    receive_thread.daemon = True
+    send_thread.daemon = True
 
     receive_thread.start()
     send_thread.start()
+
+    client_game.client_init()
 
     # Keep the main thread alive until the other threads finish (which will likely be never in this example)
     try:
@@ -93,20 +99,21 @@ def main():
     # server_socket.close()
 
 
-def receive_messages(server_socket, client_name):
+def receive_messages(server_socket, client_name, client_instance):
     while True:
         try:
             len_data_bytes = server_socket.recv(4)
             if not len_data_bytes:
-                print(f"{client_name}: Connection to server closed.")
+                print(f"{client_name}: Connection to server closed (receiving).")
                 break
             message_length = struct.unpack("!I", len_data_bytes)[0]
             message_bytes = server_socket.recv(message_length)
             if not message_bytes:
-                print(f"{client_name}: Connection to server closed.")
+                print(f"{client_name}: Connection to server closed (receiving).")
                 break
             message = message_bytes.decode('utf-8')
             print(f"{client_name} received: {message}")
+            # use to update the gamestate 
         except Exception as e:
             print(f"{client_name}: Error receiving message: {e}")
             break
@@ -114,16 +121,14 @@ def receive_messages(server_socket, client_name):
 def send_messages(server_socket, client_name):
     while True:
         if int(round(time.time()*1000)) % 16 == 0:
-            message = f"{client_name} is sending data at {round(time.time()*1000)}"
-            message_bytes = message.encode('utf-8')
+            message = "Hello Server".encode('utf-8')
             try:
-                server_socket.sendall(struct.pack("!I", len(message_bytes)))
-                server_socket.sendall(message_bytes)
-                time.sleep(0.01) # Small delay to avoid overwhelming the connection
+                server_socket.sendall(struct.pack("!I", len(message)))
+                server_socket.sendall(message)
+                time.sleep(0.016) # Roughly 60 ticks per second
             except socket.error as e:
                 print(f"{client_name}: Error sending message: {e}")
                 break
-        time.sleep(0.001) # Small delay to reduce CPU usage
 
 
 

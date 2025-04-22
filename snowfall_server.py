@@ -16,6 +16,7 @@ from stats import Stats
 import json
 import time
 import select
+import pickle
 
 def main():
     # arg parsing for server
@@ -48,19 +49,21 @@ def main():
     while len(clients) < 2: 
         client_socket, client_address = server_socket.accept()
         print(f"Accepted connection from {client_address}")
-        clients[client_socket] =  ""
+        with clients_lock:
+            clients[client_socket] =  ""
     
     # tell clients we accepted them, then wait for them to send their names
     # send a time 2 seconds into the future so that we can start syncing then
     future_time = time.time() + 2  # Current time + 2 seconds
     future_time_bytes = struct.pack("!d", future_time) # pack the time as a double
 
-    client_names = {}
 
-    threads = [threading.Thread(target=connect_client, args=[clients, client, clients_lock, future_time_bytes, client_names]) for client in clients]
-    for thread in threads:
+    for client_socket in list(clients.keys()):  # Iterate over a copy to allow removal
+        thread = threading.Thread(target=connect_client, args=[clients, client_socket, clients_lock, future_time_bytes, client_names])
+        client_threads.append(thread)
         thread.start()
-    for thread in threads:
+    
+    for thread in client_threads:
         thread.join()
     
 
@@ -69,6 +72,7 @@ def main():
     # after syncing we can do gameplay stuff:
     # message receiving loop
     server = Server(stats=Stats.empty_stats(), gamestate=Gamestate.empty_gamestate())
+    # server.parse_chart(args.chart)
 
     gameplay(clients, server)
     
@@ -79,49 +83,72 @@ def main():
     
 
 def connect_client(clients, client, clients_lock, future_time, name_array):
-    # receive name from client
-    print("Asking for client name")
-    client.send(b"Retrieving client name...")
+    try:
+        print("Asking for client name")
+        client.send(b"Retrieving client name...")
 
-    # Receive the length of the name (4 bytes)
-    name_length_bytes = recv_data(client, 4)
-    if not name_length_bytes:
-        print("Client disconnected before sending name length.", file=sys.stderr)
-        return
-    name_length = struct.unpack("!I", name_length_bytes)[0]
+        # Receive the length of the name (4 bytes)
+        name_length_bytes = recv_data(client, 4)
+        if not name_length_bytes:
+            print("Client disconnected before sending name length.", file=sys.stderr)
+            with clients_lock:
+                del clients[client]
+            return
+        name_length = struct.unpack("!I", name_length_bytes)[0]
 
-    # Receive the name based on the length
-    client_name = recv_data(client, name_length).decode('utf-8').strip()
-    with clients_lock:
-        clients[client] = client_name
-        print("This player has joined!:", client_name)
-    client.send(b"Connection Established")
+        # Receive the name based on the length
+        client_name_bytes = recv_data(client, name_length)
+        if not client_name_bytes:
+            print("Client disconnected before sending name.", file=sys.stderr)
+            with clients_lock:
+                del clients[client]
+            return
+        client_name = client_name_bytes.decode('utf-8').strip()
 
-    # Wait for the client to acknowledge the connection
-    ack_bytes = recv_data(client, 3)
-    if not ack_bytes:
-        print(f"{client_name} disconnected before acknowledging connection.", file=sys.stderr)
-        return
-    ack = ack_bytes.decode('utf-8').strip()
-    if ack != "ACK":
-        print(f"{client_name} did not acknowledge connection!", file=sys.stderr)
-        return
+        with clients_lock:
+            clients[client] = client_name
+            name_array[client] = client_name
+            print(f"This player has joined!:", client_name)
 
-    # Send the future time to the client
-    client.sendall(future_time)  # Ensure all bytes are sent
+        client.send(b"Connection Established")
 
-    # Wait for the client to acknowledge the future time
-    ack_bytes = recv_data(client, 3)
-    if not ack_bytes:
-        print(f"{client_name} disconnected before acknowledging future time.", file=sys.stderr)
-        return
-    ack = ack_bytes.decode('utf-8').strip()
-    if ack != "ACK":
-        print(f"{client_name} did not acknowledge future time!", file=sys.stderr)
+        # Wait for the client to acknowledge the connection
+        ack_bytes = recv_data(client, 3)
+        if not ack_bytes:
+            print(f"{client_name} disconnected before acknowledging connection.", file=sys.stderr)
+            with clients_lock:
+                del clients[client]
+            return
+        ack = ack_bytes.decode('utf-8').strip()
+        if ack != "ACK":
+            print(f"{client_name} did not acknowledge connection!", file=sys.stderr)
+            return
 
-    name_array[client] = client_name
+        # Send the future time to the client
+        client.sendall(future_time)  # Ensure all bytes are sent
 
-    # onwards to gameplay
+        # Wait for the client to acknowledge the future time
+        ack_bytes = recv_data(client, 3)
+        if not ack_bytes:
+            print(f"{client_name} disconnected before acknowledging future time.", file=sys.stderr)
+            with clients_lock:
+                del clients[client]
+            return
+        ack = ack_bytes.decode('utf-8').strip()
+        if ack != "ACK":
+            print(f"{client_name} did not acknowledge future time!", file=sys.stderr)
+
+    except Exception as e:
+        print(f"Error in connect_client for {client_name}: {e}", file=sys.stderr)
+        with clients_lock:
+            if client in clients:
+                del clients[client]
+        if client in name_array:
+            del name_array[client]
+    finally:
+        print(f"connect_client for {client_name} finished.")
+
+
 
 
 
@@ -137,7 +164,7 @@ def gameplay(clients, server):
 
     while True:
         print("Inside the server gameplay loop (select)")
-        readable, _, _ = select.select(client_sockets, [], [])  # Wait for sockets to be ready for reading
+        readable, _, _ = select.select(client_sockets, [], [], 0.01)  # Non-blocking select with a timeout
 
         for sock in readable:
             try:
@@ -152,21 +179,43 @@ def gameplay(clients, server):
                     continue
 
                 length = struct.unpack("!I", len_data_bytes)[0]
-                data = recv_data(sock, length).decode('utf-8')
-                print(f"Received from {clients[sock]}: {data}")
+                data_bytes = recv_data(sock, length)
+                if not data_bytes:
+                    print(f"Client {clients[sock]} disconnected during message.", file=sys.stderr)
+                    del clients[sock]
+                    client_sockets.remove(sock)
+                    if not client_sockets:
+                        print("All clients disconnected. Ending gameplay.")
+                        return
 
-                # Echo back to the same client
-                response = f"Server received from {clients[sock]}: {data}".encode('utf-8')
+                message = data_bytes.decode('utf-8').strip()
+                print(f"Received from {clients[sock]}: {message}")
+
+                response = "Hello Client".encode('utf-8')
                 sock.sendall(struct.pack("!I", len(response)))
                 sock.sendall(response)
 
             except Exception as e:
-                print(f"Error with client {clients[sock]}: {e}", file=sys.stderr)
+                print(f"Error handling client {clients[sock]}: {e}", file=sys.stderr)
                 del clients[sock]
                 client_sockets.remove(sock)
                 if not client_sockets:
                     print("All clients disconnected. Ending gameplay.")
                     return
+
+        # Send "Hello Server" to all connected clients at a regular interval (simulating tick)
+        if int(round(time.time()*1000)) % 16 == 0:
+            server_message = "Hello Server".encode('utf-8')
+            for sock in client_sockets:
+                try:
+                    sock.sendall(struct.pack("!I", len(server_message)))
+                    sock.sendall(server_message)
+                except Exception as e:
+                    print(f"Error sending to client {clients[sock]}: {e}")
+                    # Handle disconnection if necessary
+
+        time.sleep(0.016) # Roughly 60 ticks per second
+
 
     
 
