@@ -64,7 +64,7 @@ def main():
     
     # Start threads for sending and receiving messages
     receive_thread = threading.Thread(target=receive_messages, args=[server_socket, name, client_game])
-    send_thread = threading.Thread(target=send_messages, args=[server_socket, name])
+    send_thread = threading.Thread(target=send_messages, args=[server_socket, name, client_game])
     receive_thread.daemon = True
     send_thread.daemon = True
 
@@ -73,16 +73,16 @@ def main():
 
     client_game.client_init()
 
-    # Keep the main thread alive until the other threads finish (which will likely be never in this example)
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print(f"{name}: Exiting.")
-    finally:
-        server_socket.close()
-        receive_thread.join()
-        send_thread.join()
+    # # Keep the main thread alive until the other threads finish (which will likely be never in this example)
+    # try:
+    #     while True:
+    #         time.sleep(1)
+    # except KeyboardInterrupt:
+    #     print(f"{name}: Exiting.")
+    # finally:
+    server_socket.close()
+    receive_thread.join()
+    send_thread.join()
 
 
 
@@ -118,17 +118,35 @@ def receive_messages(server_socket, client_name, client_instance):
             print(f"{client_name}: Error receiving message: {e}")
             break
 
-def send_messages(server_socket, client_name):
+def send_messages(server_socket, client_name, client):
+    # while True:
+        # if int(round(time.time()*1000)) % 16 == 0:
+        #     message = "Hello Server".encode('utf-8')
+        #     try:
+        #         server_socket.sendall(struct.pack("!I", len(message)))
+        #         server_socket.sendall(message)
+        #         time.sleep(0.016) # Roughly 60 ticks per second
+        #     except socket.error as e:
+        #         print(f"{client_name}: Error sending message: {e}")
+        #         break
     while True:
-        if int(round(time.time()*1000)) % 16 == 0:
-            message = "Hello Server".encode('utf-8')
-            try:
-                server_socket.sendall(struct.pack("!I", len(message)))
-                server_socket.sendall(message)
-                time.sleep(0.016) # Roughly 60 ticks per second
-            except socket.error as e:
-                print(f"{client_name}: Error sending message: {e}")
-                break
+        # Check if the recent_id has changed
+        if client.gamestate.recent_id != previous_id:
+        # Update the previous_id to the new value
+            previous_id = client.gamestate.recent_id
+
+            # Get the recent_id and recent_judgment
+            recent_id = client.gamestate.recent_id
+            recent_judgment = client.gamestate.recent_judgment
+
+            # Prepare the data to send
+            data_to_send = f"{client_name}, {recent_id}, {recent_judgment}".encode() #TO DO: this needs to be recieved and we need to pick a correct format to send this data we def want the name of the client as well as the id of the the note and the judgment to be sent when the data is recieved im thinking the sever will comapare it with the other data to see if there is already a score i think we already have this fucntion some where so look before making it and then the data can be sent back to the clients with the correct judgment for that node that way it doesn't matter who the client is and they will just both update (this way we say fuck it to making life complicated and the code is just stream lined tis will remove checking who the client is)
+
+            # Send the length of the data followed by the data itself
+            server_socket.sendall(struct.pack("!I", len(data_to_send)))
+            server_socket.sendall(data_to_send)
+        else:
+            break
 
 
 
