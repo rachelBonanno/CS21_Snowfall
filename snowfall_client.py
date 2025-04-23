@@ -129,24 +129,26 @@ def send_messages(server_socket, client_name, client):
         #     except socket.error as e:
         #         print(f"{client_name}: Error sending message: {e}")
         #         break
+    sent_ids = set()  # Keep track of sent IDs to ensure each is sent only once
     while True:
-        # Check if the recent_id has changed
-        if client.gamestate.recent_id != previous_id:
-        # Update the previous_id to the new value
-            previous_id = client.gamestate.recent_id
+        # Check if the recent_id has changed and hasn't been sent before
+        recent_id = client.gamestate.recent_id
+        if recent_id not in sent_ids:
+            # Add the recent_id to the set of sent IDs
+            sent_ids.add(recent_id)
 
-            # Get the recent_id and recent_judgment
-            recent_id = client.gamestate.recent_id
+            # Get the recent_judgment
             recent_judgment = client.gamestate.recent_judgment
 
             # Prepare the data to send
-            data_to_send = f"{client_name}, {recent_id}, {recent_judgment}".encode() #TO DO: this needs to be recieved and we need to pick a correct format to send this data we def want the name of the client as well as the id of the the note and the judgment to be sent when the data is recieved im thinking the sever will comapare it with the other data to see if there is already a score i think we already have this fucntion some where so look before making it and then the data can be sent back to the clients with the correct judgment for that node that way it doesn't matter who the client is and they will just both update (this way we say fuck it to making life complicated and the code is just stream lined tis will remove checking who the client is)
+            data_to_send = f"{client_name}, {recent_id}, {recent_judgment}".encode()
+            print(f"sending: {data_to_send}")
 
             # Send the length of the data followed by the data itself
             server_socket.sendall(struct.pack("!I", len(data_to_send)))
             server_socket.sendall(data_to_send)
         else:
-            break
+            time.sleep(0.01)  # Avoid busy-waiting
 
 
 

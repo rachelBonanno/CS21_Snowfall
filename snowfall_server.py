@@ -156,14 +156,14 @@ def connect_client(clients, client, clients_lock, future_time, name_array):
 
 
 def gameplay(clients, server):
-    print("Starting gameplay with select...")
+    # print("Starting gameplay with select...")
     client_sockets = list(clients.keys())
     if len(client_sockets) != 2:
         print("Error: Not enough clients to start gameplay.", file=sys.stderr)
         return
 
     while True:
-        print("Inside the server gameplay loop (select)")
+        # print("Inside the server gameplay loop (select)")
         readable, _, _ = select.select(client_sockets, [], [], 0.01)  # Non-blocking select with a timeout
 
         for sock in readable:
