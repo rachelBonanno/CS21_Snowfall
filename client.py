@@ -241,6 +241,7 @@ class Client:
                         # render note
                         self.screen.blit(note_image, (x_position - 32, int(y_position) - 31)) 
                 if y_position > 700 and note['judgment'] != "": # other player has hit it, we stop drawing it at 700 so that it doesn't look choppy
+                    print(f"stop drawing this g.d. note {note['id']}")
                     continue
                 if y_position > 700 and note['duration'] == 0 and note['holding'] == False:
                     # print('miss')
