@@ -2,6 +2,9 @@ import pygame
 import time
 import json
 
+JUDGE_Y = 600
+SPEED = 1
+
 def parse_chart(filepath):
         with open(filepath, 'r') as file:
             data = json.load(file)
@@ -28,7 +31,7 @@ def accuracy(note, currenttime, key):
     if currenttime - note['time'] < 0:
         return 0
     else:
-        return 1 - (currenttime - (note['time'] + 600)) / 1000 # + 600 for judgment window
+        return 1 - (currenttime - (note['time'] + JUDGE_Y)) / 1000 # + JUDGE_Y for judgment window
     # figure out delay
 
 class Client:
@@ -38,6 +41,8 @@ class Client:
         self.stats = stats
         self.starttime = starttime
         self.server_socket = None # Will be set from the main client script
+        self.active_holds = {}
+        self.release_window = 0.15 # should probably be a global but I CBA
 
     def receive_hit_confirmation(self, note_id, judgment): 
         """ This is where we actually record that a note was hit, so it stops
@@ -57,6 +62,11 @@ class Client:
         self.screen = pygame.display.set_mode((1080, 720))
         pygame.display.set_caption(f"Game: {self.name}")
         self.gamestate.notes = parse_chart('./charts/basic.chart')
+        for note in self.gamestate.notes['notes']:
+
+            # flags used only at runtime
+            note['holding']   = False      # latch state for holds
+            note['completed'] = False 
         print(self.gamestate.notes)
         return self.client_loop()
 
@@ -74,14 +84,63 @@ class Client:
                 if elapsed_time >= note_time:
                     lane = note['lane']
                     x_position = lane * 100 + 100
-                    y_position = (elapsed_time - note_time) * 1  # Adjust speed as needed
-                    if y_position > 500 and y_position < 800:
+                    y_position = (elapsed_time - note_time) * SPEED  
+                    if y_position > 400 and y_position < 800:
                         note_queue[note['lane']].append(note) # okay, the note is hittable now
-                    pygame.draw.circle(self.screen, (255, 255, 255), (x_position, int(y_position)), 10)
-                if y_position > 700:
+                    
+                    if note['duration'] > 0:                                # HOLD NOTE
+                        # total length in pixels
+                        total_tail_px = note['duration'] * SPEED
+
+                        # how far the head has travelled so far
+                        travelled_px  = (elapsed_time - note['time']) * SPEED
+
+                        # --- HEAD POSITION ----------------------------------------------------
+                        if note['holding'] and not note['completed']:
+                            head_y = JUDGE_Y              # freeze on the judgment line
+                            draw_head = False             # hide the head while holding
+                            # While the player is holding, the body should shrink, so the
+                            # amount of tail that is still visible is:
+                            remaining_tail_px = max(0, total_tail_px - (travelled_px - JUDGE_Y))
+                        else:
+                            head_y = travelled_px         # still falling
+                            draw_head = True
+                            remaining_tail_px = max(0, total_tail_px - travelled_px)
+
+                        # --- BODY RECTANGLE ---------------------------------------------------
+                        # The rectangle starts at the top of the still-visible tail
+                        top_y = head_y - remaining_tail_px
+                        rect_h = remaining_tail_px        # height of the visible body
+
+                        if rect_h > 0:
+                            pygame.draw.rect(
+                                self.screen,
+                                (150, 150, 255),          # light blue body
+                                pygame.Rect(x_position - 7, int(top_y), 14, int(rect_h))
+                            )
+
+                        # --- OPTIONAL HEAD ----------------------------------------------------
+                        if draw_head:
+                            pygame.draw.circle(
+                                self.screen,
+                                (255, 255, 255),
+                                (x_position, int(head_y)),
+                                10
+                            )
+                    else: # not held note
+                        pygame.draw.circle(self.screen, (255, 255, 255), (x_position, int(y_position)), 10)
+                if y_position > 700 and note['duration'] == 0 and note['holding'] == False:
                     # print('miss')
                     self.gamestate.recent_id = note['id']
                     self.gamestate.recent_judgment = "No Credit"
+                if note['duration'] > 0 and not note['completed']:
+                    tail_time = note['time'] + note['duration'] + JUDGE_Y  # same JUDGE_Y ms leniency
+                    if elapsed_time > tail_time:
+                        note['judgment'] = "No Credit"
+                        note['completed'] = True
+                        self.gamestate.recent_id       = note['id']
+                        self.gamestate.recent_judgment = "No Credit"
+                        self.active_holds.pop(note['lane'], None)      # if we were still holding
             
             for event in pygame.event.get():
                 key = 0
@@ -103,16 +162,39 @@ class Client:
                     elif event.key == pygame.K_RIGHTBRACKET:
                         key = 8
                     if 1 <= key <= 8:
-                        curnotes = list(note_queue[key])
+                        curnotes = [n for n in note_queue[key] if n['judgment'] == ""] # list(note_queue[key])
                         print(curnotes)
-                        try:
-                            current_note = curnotes[0]
-                        except IndexError:
-                            continue # player hit wrong key, nws tho
+                        if not curnotes:
+                            continue # ignore stray hits
+                        current_note = curnotes[0]
                         acc = accuracy(current_note, elapsed_time, key)
-                        self.gamestate.recent_judgment = norman(acc)
-                        self.gamestate.recent_id = current_note['id']
+                        judgment = norman(acc)
+                        if current_note['duration'] == 0:
+                            self.gamestate.recent_judgment = judgment
+                            self.gamestate.recent_id = current_note['id']
+                        else:
+                            if acc > 0:
+                                current_note['holding'] = True
+                                self.active_holds[key] = current_note
                         print(current_note)
+                elif event.type == pygame.KEYUP:
+                    lane = {
+                        pygame.K_q:1, pygame.K_w:2, pygame.K_e:3, pygame.K_r:4,
+                        pygame.K_o:5, pygame.K_p:6, pygame.K_LEFTBRACKET:7, pygame.K_RIGHTBRACKET:8
+                    }.get(event.key, 0)
+
+                    note = self.active_holds.pop(lane, None)
+                    if note and not note['completed']:
+                        tail_time = note['time'] + note['duration']
+                        late_by = elapsed_time - tail_time
+                        if late_by <= self.release_window * 1000:
+                            j = norman(1 - late_by/1000)
+                        else:
+                            j = "No Credit"
+
+                        note['completed'] = True
+                        self.gamestate.recent_id = note['id']
+                        self.gamestate.recent_judgment = j
 
                 if event.type == pygame.QUIT or elapsed_time >= self.gamestate.notes['end']:
                     pygame.quit()
@@ -134,5 +216,5 @@ class Client:
             self.screen.fill((0, 0, 0))  # Clear the screen
             # print("wahoo")
             
-            pygame.draw.line(self.screen, (255, 255, 255), (0, 600), (1080, 600), 5)
+            pygame.draw.line(self.screen, (255, 255, 255), (0, JUDGE_Y), (1080, JUDGE_Y), 5)
             time.sleep(0.016) # Limit frame rate
