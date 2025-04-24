@@ -7,7 +7,6 @@ class Gamestate:
         self.recent_id = recent_id
         self.recent_position = -1
         self.recent_judgment = recent_judgment
-        self.recent_judgment_draw = recent_judgment
         self.combo = combo
 
     @staticmethod

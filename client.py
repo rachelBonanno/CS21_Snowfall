@@ -12,8 +12,8 @@ JUDGMENT_IMAGES = {
                 "Very Good": pygame.image.load('./assets/VERYGOOD.png'),
                 "Good": pygame.image.load('./assets/GOOD.png'),
                 "Fair": pygame.image.load('./assets/FAIR.png'),
-                "Poor": pygame.image.load('./assets/POOR.png')
-                # "No Credit": pygame.image.load('./assets/NOCREDIT.png')
+                "Poor": pygame.image.load('./assets/POOR.png'),
+                "No Credit": pygame.image.load('./assets/NOCREDIT.png')
             }
 
 KEY_IMAGES = {
@@ -49,7 +49,7 @@ LANE_POS = {
 }
 
 
-        
+
 body_image = pygame.image.load('./assets/long_p1.png')
 body_width, body_height = body_image.get_size()
 
@@ -102,36 +102,29 @@ class Client:
         self.visible_index = 0
         self.last_announced_id = -1
         self.pressed_keys = set()
-        self.timeToAnnounce = 0
     def active_lanes(self):
         """Return the right-most (max index) two lanes currently held."""
         return set(sorted(self.pressed_keys)[-2:])
 
     def announce(self, note_id, judgment):
         """Show a new judgment only if this note hasn’t been announced."""
-        if note_id != self.last_announced_id and self.gamestate.recent_judgment != 'No Credit':
-            self.gamestate.recent_judgment_draw = judgment
+        if note_id != self.last_announced_id:
+            self.gamestate.recent_judgment = judgment
             self.last_announced_id         = note_id
-            self.timeToAnnounce = 1000 * (time.time() - self.starttime) + 200
 
     def receive_hit_confirmation(self, note_id, judgment): 
         """ This is where we actually record that a note was hit, so it stops
         being drawn on the screen. This is called from snowfall_client when it
         receives a message from the server indicating that a note was hit. """
         # print(f"Received hit confirmation: {note_id}, {judgment}")
-        cur_j = self.gamestate.notes['notes'][note_id]['judgment']
         self.gamestate.notes['notes'][note_id]['judgment'] = judgment # set the judgment of the note to the one we received
-        if judgment != 'No Credit': # announce if new is not NC (never announce NCs)
-            print(f"announcing {judgment}")
-            self.announce(note_id, judgment)
-
-
+        self.announce(note_id, judgment)
 
     def set_socket(self, server_socket):
         self.server_socket = server_socket
 
     def client_init(self):
-        
+
         self.gamestate.notes = parse_chart('./charts/imprinting.chart')
 
         audio_path = pathlib.Path('./charts') / self.gamestate.notes['audio']
@@ -140,7 +133,7 @@ class Client:
         if not audio_path.exists():
             raise FileNotFoundError(audio_path)
         song_offset = self.gamestate.notes.get("offset", 0) / 1000 # to seconds
-        
+
         pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.init()
         flags = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
@@ -155,7 +148,7 @@ class Client:
         # print(self.gamestate.notes)
         while time.time() < self.starttime:
             time.sleep(0.01)
-        
+
         print(self.starttime - time.time() + song_offset)
         play_delay = max(0, self.starttime - time.time() + song_offset)
         print(play_delay)
@@ -199,7 +192,7 @@ class Client:
                         continue
                     if y_position > 400 and y_position < 800:
                         note_queue[note['lane']].append(note) # okay, the note is hittable now
-                    
+
                     if note['duration'] > 0:                                # HOLD NOTE
                         # total length in pixels
                         total_tail_px = note['duration'] * SPEED
@@ -248,7 +241,6 @@ class Client:
                     else: # not held note
                         # render note
                         self.screen.blit(note_image, (x_position - 32, int(y_position) - 31)) 
-                
                 if y_position > 700 and note['duration'] == 0 and note['holding'] == False:
                     # print('miss')
                     self.gamestate.recent_id = note['id']
@@ -270,7 +262,7 @@ class Client:
                     lane = LANE_KEY[event.key]
                     self.pressed_keys.add(lane)
 
-                    # ---- HIT-DETECTION ----
+                # ---- HIT-DETECTION ----
                     if lane in self.active_lanes():
                         curnotes = [n for n in note_queue[lane] if n['judgment'] == ""]
                         if curnotes:
@@ -298,23 +290,22 @@ class Client:
                         self.gamestate.recent_judgment = j
                         self.gamestate.notes['notes'][note['id']]['finished'] = True # we have hit the note so we can stop drawing it
 
-                    # Display the key image at the specified position
-                    # self.screen.blit(key_image, key_position)
+                # Display the key image at the specified position
+                # self.screen.blit(key_image, key_position)
 
                 if event.type == pygame.QUIT or elapsed_time >= self.gamestate.notes['end']:
                     pygame.quit()
                     return True
             t2 = perf_counter()
             font = pygame.font.Font(None, 36)
-            
+
             # judgement logic here 
-            
+
 
             # Render the judgment image in the top center of the screen
-            if self.gamestate.recent_judgment_draw in JUDGMENT_IMAGES and self.timeToAnnounce >= elapsed_time:
+            if self.gamestate.recent_judgment in JUDGMENT_IMAGES:
                 # print(f"got judgment {self.gamestate.recent_judgment}")
-
-                judgment_image = JUDGMENT_IMAGES[self.gamestate.recent_judgment_draw]
+                judgment_image = JUDGMENT_IMAGES[self.gamestate.recent_judgment]
                 image_rect = judgment_image.get_rect(center=(self.screen.get_width() // 2, 50))
                 self.screen.blit(judgment_image, image_rect)
 
@@ -328,7 +319,7 @@ class Client:
                     self.screen.blit(KEY_IMAGES[lane], pos)
                 else:
                     self.screen.blit(KEY_LIMIT_IMAGES[lane], pos)
-            
+
             pygame.display.flip()
             t3 = perf_counter()
             if frame % 120 == 0:
@@ -337,11 +328,10 @@ class Client:
                     f"flip = {(t3-t2)*1000:5.1f} ms")
             frame += 1
 
-            
+
             self.screen.fill((0, 0, 0))  # Clear the screen
-            
+
             self.screen.blit(background_image, (0, 0))
             # print("wahoo")
-            
+
             pygame.draw.line(self.screen, (255, 255, 255), (0, JUDGE_Y), (1080, JUDGE_Y), 5)
-            # time.sleep(0.016) # Limit frame rate
