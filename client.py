@@ -2,7 +2,7 @@ import pygame
 import time
 import json
 
-JUDGE_Y = 600
+JUDGE_Y = 615
 SPEED = 1
 
 def parse_chart(filepath):
@@ -83,7 +83,8 @@ class Client:
                 note_time = note['time']
                 if elapsed_time >= note_time:
                     lane = note['lane']
-                    x_position = lane * 100 + 100
+                    x_position = (lane - 1) * 98 + 198
+
                     y_position = (elapsed_time - note_time) * SPEED  
                     if y_position > 400 and y_position < 800:
                         note_queue[note['lane']].append(note) # okay, the note is hittable now
@@ -112,23 +113,36 @@ class Client:
                         top_y = head_y - remaining_tail_px
                         rect_h = remaining_tail_px        # height of the visible body
 
+                        # --- BODY IMAGE ---------------------------------------------------
                         if rect_h > 0:
-                            pygame.draw.rect(
-                                self.screen,
-                                (150, 150, 255),          # light blue body
-                                pygame.Rect(x_position - 7, int(top_y), 14, int(rect_h))
-                            )
+                            # Load the body image
+                            body_image = pygame.image.load('./assets/long_p1.png')
+                            body_width, body_height = body_image.get_size()
 
-                        # --- OPTIONAL HEAD ----------------------------------------------------
+                            # Calculate how many times the body image needs to be repeated
+                            num_repeats = int(rect_h / body_height) + 1
+
+                            # Draw the body image repeatedly to fill the height
+                            for i in range(num_repeats):
+                                segment_y = int(top_y) + i * body_height
+                                if segment_y + body_height > top_y + rect_h:
+                                    # Clip the last segment if it exceeds the visible height
+                                    clipped_body = pygame.Surface((body_width, int(top_y + rect_h - segment_y)), pygame.SRCALPHA)
+                                    clipped_body.blit(body_image, (0, 0), (0, 0, body_width, int(top_y + rect_h - segment_y)))
+                                    self.screen.blit(clipped_body, (x_position - 28, segment_y))
+                                else:
+                                    self.screen.blit(body_image, (x_position - 28, segment_y))
+
+                        # --- HEAD IMAGE ---------------------------------------------------
                         if draw_head:
-                            pygame.draw.circle(
-                                self.screen,
-                                (255, 255, 255),
-                                (x_position, int(head_y)),
-                                10
-                            )
+                            head_image = pygame.image.load('./assets/note_p1.png')
+                            head_image = pygame.transform.scale(head_image, (64, 62)) 
+                            self.screen.blit(head_image, (x_position - 32, int(head_y) - 31))
                     else: # not held note
-                        pygame.draw.circle(self.screen, (255, 255, 255), (x_position, int(y_position)), 10)
+                        # render note
+                        note_image = pygame.image.load('./assets/note_p1.png')
+                        note_image = pygame.transform.scale(note_image, (64, 62))  # Adjust size as needed
+                        self.screen.blit(note_image, (x_position - 32, int(y_position) - 31)) 
                 if y_position > 700 and note['duration'] == 0 and note['holding'] == False:
                     # print('miss')
                     self.gamestate.recent_id = note['id']
@@ -147,20 +161,37 @@ class Client:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_q:
                         key = 1
+                        key_image = pygame.image.load('./assets/q_press.png') 
+                        key_position = (198 - 32, 650)  
                     elif event.key == pygame.K_w:
                         key = 2
+                        key_image = pygame.image.load('./assets/w_press.png')  
+                        key_position = (296 - 32, 650)  
                     elif event.key == pygame.K_e:
                         key = 3
+                        key_image = pygame.image.load('./assets/e_press.png')  
+                        key_position = (394 - 32, 650) 
                     elif event.key == pygame.K_r:
                         key = 4
+                        key_image = pygame.image.load('./assets/r_press.png')  
+                        key_position = (492 - 32, 650) 
                     elif event.key == pygame.K_o:
                         key = 5
+                        key_image = pygame.image.load('./assets/o_press.png')  
+                        key_position = (590 - 32, 650)  
                     elif event.key == pygame.K_p:
                         key = 6
+                        key_image = pygame.image.load('./assets/p_press.png')  
+                        key_position = (688 - 32, 650) 
                     elif event.key == pygame.K_LEFTBRACKET:
                         key = 7
+                        key_image = pygame.image.load('./assets/[_press.png')  
+                        key_position = (786 - 32, 650)  
                     elif event.key == pygame.K_RIGHTBRACKET:
                         key = 8
+                        key_image = pygame.image.load('./assets/]_press.png')  
+                        key_position = (884 - 32, 650)  
+
                     if 1 <= key <= 8:
                         curnotes = [n for n in note_queue[key] if n['judgment'] == ""] # list(note_queue[key])
                         print(curnotes)
@@ -176,6 +207,7 @@ class Client:
                             if acc > 0:
                                 current_note['holding'] = True
                                 self.active_holds[key] = current_note
+
                         print(current_note)
                 elif event.type == pygame.KEYUP:
                     lane = {
@@ -196,26 +228,39 @@ class Client:
                         self.gamestate.recent_id = note['id']
                         self.gamestate.recent_judgment = j
 
+                    # Display the key image at the specified position
+                    self.screen.blit(key_image, key_position)
+
                 if event.type == pygame.QUIT or elapsed_time >= self.gamestate.notes['end']:
                     pygame.quit()
                     return True
-                
-            # Example: Send a message periodically from the Pygame loop (optional now)
-            # if self.server_socket and int(round(time.time() * 1000)) % 1000 == 0:
-            #     message = "Hello from Pygame".encode('utf-8')
-            #     try:
-            #         self.server_socket.sendall(struct.pack("!I", len(message)))
-            #         self.server_socket.sendall(message)
-            #     except socket.error as e:
-            #         print(f"{self.name}: Error sending from Pygame: {e}")
             
             font = pygame.font.Font(None, 36)
             
             # judgement logic here 
-            text = font.render(self.gamestate.recent_judgment, True, (255, 255, 255))
-            self.screen.blit(text, (50, 50))
+            judgment_images = {
+                "Excellent": pygame.image.load('./assets/EXCELLENT.png'),
+                "Very Good": pygame.image.load('./assets/VERYGOOD.png'),
+                "Good": pygame.image.load('./assets/GOOD.png'),
+                "Fair": pygame.image.load('./assets/FAIR.png'),
+                "Poor": pygame.image.load('./assets/POOR.png'),
+                "No Credit": pygame.image.load('./assets/NOCREDIT.png')
+            }
+
+            # Render the judgment image in the top center of the screen
+            if self.gamestate.recent_judgment in judgment_images:
+                judgment_image = judgment_images[self.gamestate.recent_judgment]
+                image_rect = judgment_image.get_rect(center=(self.screen.get_width() // 2, 50))
+                self.screen.blit(judgment_image, image_rect)
+
+            # text = font.render(self.gamestate.recent_judgment, True, (255, 255, 255))
+            # self.screen.blit(text, (50, 50))
             pygame.display.flip()
+
+            
             self.screen.fill((0, 0, 0))  # Clear the screen
+            background_image = pygame.image.load('./assets/main_screen.png')
+            self.screen.blit(background_image, (0, 0))
             # print("wahoo")
             
             pygame.draw.line(self.screen, (255, 255, 255), (0, JUDGE_Y), (1080, JUDGE_Y), 5)
