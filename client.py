@@ -109,7 +109,6 @@ class Client:
     def announce(self, note_id, judgment):
         """Show a new judgment only if this note hasn’t been announced."""
         if note_id != self.last_announced_id:
-            self.gamestate.recent_id       = note_id
             self.gamestate.recent_judgment = judgment
             self.last_announced_id         = note_id
 
@@ -138,8 +137,8 @@ class Client:
         
         pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.init()
-        flags = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
-        self.screen = pygame.display.set_mode((1080, 720), flags)
+        # flags = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
+        self.screen = pygame.display.set_mode((1080, 720)) # pygame.display.set_mode((1080, 720), flags)
         pygame.display.set_caption(f"Game: {self.name}")
         for note in self.gamestate.notes['notes']:
 
@@ -183,7 +182,7 @@ class Client:
                     continue
                 y_position = 0
                 note_time = note['time']
-                if elapsed_time >= note_time:
+                if elapsed_time >= note_time or (note['id'] == self.gamestate.recent_id and elapsed_time >= self.gamestate.recent_position):
                     lane = note['lane']
                     x_position = (lane - 1) * 98 + 198
 
@@ -242,6 +241,7 @@ class Client:
                 if y_position > 700 and note['duration'] == 0 and note['holding'] == False:
                     # print('miss')
                     self.gamestate.recent_id = note['id']
+                    self.gamestate.recent_position = y_position
                     self.gamestate.recent_judgment = "No Credit"
                 if note['duration'] > 0 and not note['completed']:
                     tail_time = note['time'] + note['duration'] + JUDGE_Y  # same JUDGE_Y ms leniency
@@ -250,6 +250,7 @@ class Client:
                         note['completed'] = True
                         self.gamestate.recent_id       = note['id']
                         self.gamestate.recent_judgment = "No Credit"
+                        self.gamestate.recent_position = y_position
                         self.active_holds.pop(note['lane'], None)      # if we were still holding
             t1 = perf_counter()
             for event in pygame.event.get():

@@ -5,6 +5,7 @@ class Gamestate:
         self.lanes_pressed = lanes_pressed
         self.score = score
         self.recent_id = recent_id
+        self.recent_position = -1
         self.recent_judgment = recent_judgment
         self.combo = combo
 
