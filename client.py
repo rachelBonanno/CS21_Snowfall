@@ -102,6 +102,7 @@ class Client:
         self.visible_index = 0
         self.last_announced_id = -1
         self.pressed_keys = set()
+        self.timeToAnnounce = 0
     def active_lanes(self):
         """Return the right-most (max index) two lanes currently held."""
         return set(sorted(self.pressed_keys)[-2:])
@@ -111,6 +112,7 @@ class Client:
         if note_id != self.last_announced_id:
             self.gamestate.recent_judgment = judgment
             self.last_announced_id         = note_id
+            self.timeToAnnounce = 1000 * (time.time() - self.starttime) + 80
 
     def receive_hit_confirmation(self, note_id, judgment): 
         """ This is where we actually record that a note was hit, so it stops
@@ -120,6 +122,7 @@ class Client:
         cur_j = self.gamestate.notes['notes'][note_id]['judgment']
         self.gamestate.notes['notes'][note_id]['judgment'] = judgment # set the judgment of the note to the one we received
         if judgment != 'No Credit': # announce if new is not NC (never announce NCs)
+            print(f"announcing {judgment}")
             self.announce(note_id, judgment)
 
 
@@ -308,8 +311,9 @@ class Client:
             
 
             # Render the judgment image in the top center of the screen
-            if self.gamestate.recent_judgment in JUDGMENT_IMAGES:
+            if self.gamestate.recent_judgment in JUDGMENT_IMAGES and self.timeToAnnounce >= elapsed_time:
                 # print(f"got judgment {self.gamestate.recent_judgment}")
+
                 judgment_image = JUDGMENT_IMAGES[self.gamestate.recent_judgment]
                 image_rect = judgment_image.get_rect(center=(self.screen.get_width() // 2, 50))
                 self.screen.blit(judgment_image, image_rect)
