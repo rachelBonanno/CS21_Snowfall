@@ -12,8 +12,8 @@ JUDGMENT_IMAGES = {
                 "Very Good": pygame.image.load('./assets/VERYGOOD.png'),
                 "Good": pygame.image.load('./assets/GOOD.png'),
                 "Fair": pygame.image.load('./assets/FAIR.png'),
-                "Poor": pygame.image.load('./assets/POOR.png'),
-                "No Credit": pygame.image.load('./assets/NOCREDIT.png')
+                "Poor": pygame.image.load('./assets/POOR.png')
+                # "No Credit": pygame.image.load('./assets/NOCREDIT.png')
             }
 
 KEY_IMAGES = {
@@ -109,10 +109,10 @@ class Client:
 
     def announce(self, note_id, judgment):
         """Show a new judgment only if this note hasn’t been announced."""
-        if note_id != self.last_announced_id:
-            self.gamestate.recent_judgment = judgment
+        if note_id != self.last_announced_id and self.gamestate.recent_judgment != 'No Credit':
+            self.gamestate.recent_judgment_draw = judgment
             self.last_announced_id         = note_id
-            self.timeToAnnounce = 1000 * (time.time() - self.starttime) + 80
+            self.timeToAnnounce = 1000 * (time.time() - self.starttime) + 200
 
     def receive_hit_confirmation(self, note_id, judgment): 
         """ This is where we actually record that a note was hit, so it stops
@@ -311,10 +311,10 @@ class Client:
             
 
             # Render the judgment image in the top center of the screen
-            if self.gamestate.recent_judgment in JUDGMENT_IMAGES and self.timeToAnnounce >= elapsed_time:
+            if self.gamestate.recent_judgment_draw in JUDGMENT_IMAGES and self.timeToAnnounce >= elapsed_time:
                 # print(f"got judgment {self.gamestate.recent_judgment}")
 
-                judgment_image = JUDGMENT_IMAGES[self.gamestate.recent_judgment]
+                judgment_image = JUDGMENT_IMAGES[self.gamestate.recent_judgment_draw]
                 image_rect = judgment_image.get_rect(center=(self.screen.get_width() // 2, 50))
                 self.screen.blit(judgment_image, image_rect)
 
