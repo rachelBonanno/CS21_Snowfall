@@ -119,7 +119,7 @@ class Client:
         # print(f"Received hit confirmation: {note_id}, {judgment}")
         cur_j = self.gamestate.notes['notes'][note_id]['judgment']
         self.gamestate.notes['notes'][note_id]['judgment'] = judgment # set the judgment of the note to the one we received
-        if cur_j == judgment or judgment != 'No Credit': # announce if old and new are both NC or if new is not NC (don't announce NCs until both machines have indicated NC)
+        if judgment != 'No Credit': # announce if new is not NC (never announce NCs)
             self.announce(note_id, judgment)
 
 
