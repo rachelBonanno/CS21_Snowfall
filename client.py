@@ -194,7 +194,7 @@ class Client:
                         else:
                             head_y = travelled_px         # still falling
                             draw_head = True
-                            remaining_tail_px = max(0, total_tail_px - travelled_px)
+                            remaining_tail_px = total_tail_px 
 
                         # --- BODY RECTANGLE ---------------------------------------------------
                         # The rectangle starts at the top of the still-visible tail
@@ -209,8 +209,8 @@ class Client:
                             num_repeats = int(rect_h / body_height) + 1
 
                             # Draw the body image repeatedly to fill the height
-                            for i in range(num_repeats):
-                                segment_y = int(top_y) + i * body_height
+                            for rep in range(num_repeats):
+                                segment_y = int(top_y) + rep * body_height
                                 if segment_y + body_height > top_y + rect_h:
                                     # Clip the last segment if it exceeds the visible height
                                     clipped_body = pygame.Surface((body_width, int(top_y + rect_h - segment_y)), pygame.SRCALPHA)
