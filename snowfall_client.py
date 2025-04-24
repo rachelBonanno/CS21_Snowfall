@@ -88,21 +88,6 @@ def main():
     receive_thread.join()
     send_thread.join()
 
-    
-
-
-
-    # while True:
-    #     if int(round(time.time()*1000)) % 16 == 0:
-    #         print(round(time.time()*1000))
-    #         bytes = 15
-    #         server_socket.send(struct.pack("!I", bytes))
-    #         server_socket.send(f"{name}Hello, server!".encode()) 
-    #         # wait for a hundredth of a second
-    #         time.sleep(0.01)
-
-    # # Close the connection
-    # server_socket.close()
 
 
 def receive_messages(server_socket, client_name, client_instance, stop_event):

@@ -210,6 +210,8 @@ class Client:
             #         print(f"{self.name}: Error sending from Pygame: {e}")
             
             font = pygame.font.Font(None, 36)
+            
+            # judgement logic here 
             text = font.render(self.gamestate.recent_judgment, True, (255, 255, 255))
             self.screen.blit(text, (50, 50))
             pygame.display.flip()
