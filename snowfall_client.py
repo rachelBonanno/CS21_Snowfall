@@ -52,6 +52,12 @@ def main():
     #     print(f"Received: {data.decode()}")
     server_socket.send(b"ACK")
 
+    data = server_socket.recv(5)  
+    if data:
+        # we got a "ping!"
+        # print(f"Received future time: {future_time}")
+        server_socket.send(b"pong!")
+
     # Receive the future time from the server
     data = server_socket.recv(8)  
     if data:
@@ -59,11 +65,7 @@ def main():
         print(f"Received future time: {future_time}")
     server_socket.send(b"ACK")
 
-    data = server_socket.recv(5)  
-    if data:
-        # we got a "ping!"
-        print(f"Received future time: {future_time}")
-    server_socket.send(b"pong!")
+    
 
     client_game = Client(name=name, gamestate=Gamestate.empty_gamestate(), stats=Stats.empty_stats(), starttime=future_time)
     client_game.set_socket(server_socket)  

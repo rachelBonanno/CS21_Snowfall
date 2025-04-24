@@ -56,11 +56,10 @@ def main():
     # tell clients we accepted them, then wait for them to send their names
     # send a time 2 seconds into the future so that we can start syncing then
     future_time = time.time() + 3  # Current time + 2 seconds
-    future_time_bytes = struct.pack("!d", future_time) # pack the time as a double
 
 
     for client_socket in list(clients.keys()):  # Iterate over a copy to allow removal
-        thread = threading.Thread(target=connect_client, args=[clients, client_socket, clients_lock, future_time_bytes, client_names])
+        thread = threading.Thread(target=connect_client, args=[clients, client_socket, clients_lock, future_time, client_names])
         client_threads.append(thread)
         thread.start()
     
@@ -84,7 +83,7 @@ def main():
     
 
 def connect_client(clients, client, clients_lock, future_time, name_array):
-    try:
+    # try:
         print("Asking for client name")
         client.send(b"Retrieving client name...")
 
@@ -125,24 +124,8 @@ def connect_client(clients, client, clients_lock, future_time, name_array):
             print(f"{client_name} did not acknowledge connection!", file=sys.stderr)
             return
 
-        # Send the future time to the client
-        client.sendall(future_time)  # Ensure all bytes are sent
-
-        # Wait for the client to acknowledge the future time
-        ack_bytes = recv_data(client, 3)
-        if not ack_bytes:
-            print(f"{client_name} disconnected before acknowledging future time.", file=sys.stderr)
-            with clients_lock:
-                del clients[client]
-            return
-        ack = ack_bytes.decode('utf-8').strip()
-        if ack != "ACK":
-            print(f"{client_name} did not acknowledge future time!", file=sys.stderr)
-
-
-        ping_bytes = struct.pack("!d", "ping!")
         ping = time.time()
-        client.sendall(ping_bytes)
+        client.sendall("ping!".encode('utf-8'))
 
         ack_pong = recv_data(client, 5)
         pong = time.time() - ping
@@ -159,15 +142,36 @@ def connect_client(clients, client, clients_lock, future_time, name_array):
             clients[client] = (client_name, pong)
             print(f"{client_name} has ping {pong}")
 
-    except Exception as e:
-        print(f"Error in connect_client for {client_name}: {e}", file=sys.stderr)
-        with clients_lock:
-            if client in clients:
+        
+        future_time_bytes = struct.pack("!d", future_time + pong) # pack the time as a double
+
+        # Send the future time to the client
+        client.sendall(future_time_bytes)  # Ensure all bytes are sent
+
+        # Wait for the client to acknowledge the future time
+        ack_bytes = recv_data(client, 3)
+        if not ack_bytes:
+            print(f"{client_name} disconnected before acknowledging future time.", file=sys.stderr)
+            with clients_lock:
                 del clients[client]
-        if client in name_array:
-            del name_array[client]
-    finally:
-        print(f"connect_client for {client_name} finished.")
+            return
+        ack = ack_bytes.decode('utf-8').strip()
+        if ack != "ACK":
+            print(f"{client_name} did not acknowledge future time!", file=sys.stderr)
+
+
+        # ping_bytes = struct.pack("!d", "ping!")
+        
+
+    # except Exception as e:
+    #     print(f"Error in connect_client for {client_name}: {e}", file=sys.stderr)
+    #     with clients_lock:
+    #         if client in clients:
+    #             del clients[client]
+    #     if client in name_array:
+    #         del name_array[client]
+    # finally:
+    #     print(f"connect_client for {client_name} finished.")
 
 
 
