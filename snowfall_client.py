@@ -27,6 +27,8 @@ def main():
     port = args.port
     name = args.name
 
+    stop_event = threading.Event()
+
     # Connect to the server
     try:
         server_socket.connect((host, port))
@@ -63,8 +65,8 @@ def main():
     # gameplay time
     
     # Start threads for sending and receiving messages
-    receive_thread = threading.Thread(target=receive_messages, args=[server_socket, name, client_game])
-    send_thread = threading.Thread(target=send_messages, args=[server_socket, name, client_game])
+    receive_thread = threading.Thread(target=receive_messages, args=[server_socket, name, client_game, stop_event])
+    send_thread = threading.Thread(target=send_messages, args=[server_socket, name, client_game, stop_event])
     receive_thread.daemon = True
     send_thread.daemon = True
 
@@ -72,6 +74,8 @@ def main():
     send_thread.start()
 
     client_game.client_init()
+
+    stop_event.set()
 
     # # Keep the main thread alive until the other threads finish (which will likely be never in this example)
     # try:
@@ -83,6 +87,8 @@ def main():
     server_socket.close()
     receive_thread.join()
     send_thread.join()
+
+    
 
 
 
@@ -99,8 +105,8 @@ def main():
     # server_socket.close()
 
 
-def receive_messages(server_socket, client_name, client_instance):
-    while True:
+def receive_messages(server_socket, client_name, client_instance, stop_event):
+    while not stop_event.is_set():
         try:
             len_data_bytes = server_socket.recv(4)
             if not len_data_bytes:
@@ -112,13 +118,22 @@ def receive_messages(server_socket, client_name, client_instance):
                 print(f"{client_name}: Connection to server closed (receiving).")
                 break
             message = message_bytes.decode('utf-8')
+            try:
+                client_id, note_id, note_judgment = message.split(", ")
+                note_id = int(note_id.strip())
+                note_judgment = note_judgment.strip()
+                print(f"Parsed message - Client ID: {client_id}, Note ID: {note_id}, Note Judgment: {note_judgment}")
+            except ValueError as e:
+                print(f"Error parsing message: {e}", file=sys.stderr)
+                continue
             print(f"{client_name} received: {message}")
+            client_instance.receive_hit_confirmation(note_id, note_judgment)
             # use to update the gamestate 
         except Exception as e:
             print(f"{client_name}: Error receiving message: {e}")
             break
 
-def send_messages(server_socket, client_name, client):
+def send_messages(server_socket, client_name, client, stop_event):
     # while True:
         # if int(round(time.time()*1000)) % 16 == 0:
         #     message = "Hello Server".encode('utf-8')
@@ -130,7 +145,7 @@ def send_messages(server_socket, client_name, client):
         #         print(f"{client_name}: Error sending message: {e}")
         #         break
     sent_ids = set()  # Keep track of sent IDs to ensure each is sent only once
-    while True:
+    while not stop_event.is_set():
         # Check if the recent_id has changed and hasn't been sent before
         recent_id = client.gamestate.recent_id
         if recent_id not in sent_ids:

@@ -5,6 +5,23 @@ def better(judgment1, judgment2):
     judgments = ['No Credit', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
     return judgments.index(judgment1) > judgments.index(judgment2)
 
+def calcscore(judgment):
+    # scoring system
+    if judgment == 'No Credit':
+        return 0
+    elif judgment == 'Poor':
+        return 100
+    elif judgment == 'Fair':
+        return 200
+    elif judgment == 'Good':
+        return 300
+    elif judgment == 'Very Good':
+        return 400
+    elif judgment == 'Excellent':
+        return 500
+    else:
+        raise ValueError("Invalid judgment value")
+
 class Server:
     def __init__(self, stats, gamestate):
         self.stats = stats # only display at end of song
@@ -12,35 +29,35 @@ class Server:
         self.gamestatelock = threading.Lock() # lock for gamestate
 
     def parse_chart(self, chartpath):
+        print("parsing chart")
         with open(chartpath, 'r') as file:
             data = json.load(file)
+        print(data)
         self.gamestate.notes = data # doesn't need to be locked as this is only done once
 
-    def receive_score(self, note):
-        score = score(note['judgment'])
+    def receive_score(self, note_id, judgment):
+        print(f"Received score: {note_id}, {judgment}")
+        score = calcscore(judgment)
+        tellOtherPlayer = False
         with self.gamestatelock:
-            our_note = self.gamestate.notes[note['id']] # get the note from the gamestate
-
-            if note['judgment'] == 'No Credit' and our_note['judgment'] == 'No Credit':
+            # print(self.gamestate.notes)
+            our_note = self.gamestate.notes['notes'][note_id]  # get the note from the gamestate
+            print(f"our note: {our_note}, judgment: {judgment}, our judgment: {our_note['judgment']}")
+            if judgment == 'No Credit' and our_note['judgment'] == 'No Credit': # case where both players miss
+                print("!!!!!!!!!!!! in missed note case")
                 # then we actually have a miss
                 self.gamestate.combo = 0 # reset combo
-                
-            # after we get the note from the second player
-            if better(note['judgement'], our_note['id']['judgement']): # scoring when there's already a score
-                # if our new judgment is better than the previous one, update it
-                our_note['id']['judgement'] = note['judgement']
-                # account for judgements from both players, takes the higher onee nd adds to score
-                self.gamestate.update_score(score - score(our_note['id']['judgement'])) # update score with the new judgment
-                self.gamestate.combo += 1 # increment combo
-            else:
-                # if our new judgment is worse, we don't need to update it
-                return
-                
-            # when we get a first time note from first player - scoring when there's no score yet
-            our_note['id']['judgement'] = note['judgment']
-            self.gamestate.update_score(score)
-            self.gamestate.combo += 1
-            self.stats.update_max_combo(pState.combo)
+                tellOtherPlayer = True    
+            elif our_note['judgment'] == "" or our_note['judgment'] == 'No Credit': # case where we have a first time note from first player
+                # when we get a first time note from first player - scoring when there's no score yet
+                our_note['judgment'] = judgment
+                self.gamestate.update_score(score)
+                self.gamestate.combo += 1
+                self.stats.update_max_combo(self.gamestate.combo)
+                tellOtherPlayer = True
+            # else we don't do anything and we don't need to inform anyone
+        print(f"new score: {self.gamestate.score}, new combo: {self.gamestate.combo}")
+        return tellOtherPlayer
 
 
 

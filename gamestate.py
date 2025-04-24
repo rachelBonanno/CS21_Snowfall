@@ -19,4 +19,4 @@ class Gamestate:
         return None
 
     def update_score(self, new_score):
-        self.score = new_score
+        self.score += new_score

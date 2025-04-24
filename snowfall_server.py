@@ -23,7 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description="Start the Snowfall server.")
     parser.add_argument('--host', type=str, default='127.0.0.1', help='Host to bind the server to.')
     parser.add_argument('--port', type=int, default=65432, help='Port to bind the server to.')
-    parser.add_argument('--chart', type=str, default='charts/basic.chart', help='Path to the chart file.')
+    parser.add_argument('--chart', type=str, default='./charts/basic.chart', help='Path to the chart file.')
     args = parser.parse_args()
 
     host = args.host
@@ -38,7 +38,7 @@ def main():
     # creating server object
     server = Server(stats=Stats.empty_stats(), gamestate=Gamestate.empty_gamestate()) 
     server.parse_chart(args.chart)
-
+    print(server.gamestate.notes)
     clients_lock = threading.Lock()
 
     # connecting clients
@@ -71,7 +71,7 @@ def main():
 
     # after syncing we can do gameplay stuff:
     # message receiving loop
-    server = Server(stats=Stats.empty_stats(), gamestate=Gamestate.empty_gamestate())
+    # server = Server(stats=Stats.empty_stats(), gamestate=Gamestate.empty_gamestate())
     # server.parse_chart(args.chart)
 
     gameplay(clients, server)
@@ -165,7 +165,6 @@ def gameplay(clients, server):
     while True:
         # print("Inside the server gameplay loop (select)")
         readable, _, _ = select.select(client_sockets, [], [], 0.01)  # Non-blocking select with a timeout
-
         for sock in readable:
             try:
                 len_data_bytes = recv_data(sock, 4)
@@ -190,10 +189,23 @@ def gameplay(clients, server):
 
                 message = data_bytes.decode('utf-8').strip()
                 print(f"Received from {clients[sock]}: {message}")
-
-                response = "Hello Client".encode('utf-8')
-                sock.sendall(struct.pack("!I", len(response)))
-                sock.sendall(response)
+                # Parse the received message
+                try:
+                    client_id, note_id, note_judgment = message.split(", ")
+                    note_id = int(note_id.strip())
+                    note_judgment = note_judgment.strip()
+                    print(f"Parsed message - Client ID: {client_id}, Note ID: {note_id}, Note Judgment: {note_judgment}")
+                    
+                except ValueError as e:
+                    print(f"Error parsing message from {clients[sock]}: {e}", file=sys.stderr)
+                    continue
+                notify = server.receive_score(note_id, note_judgment)  # Update server gamestate with received data
+                if notify:
+                    message = message.encode('utf-8')
+                    for soc in client_sockets: # tell all clients that a note was hit
+                        print(f"sending {message} to {soc}")
+                        soc.sendall(struct.pack("!I", len(message)))
+                        soc.sendall(message)
 
             except Exception as e:
                 print(f"Error handling client {clients[sock]}: {e}", file=sys.stderr)
@@ -204,14 +216,14 @@ def gameplay(clients, server):
                     return
 
         # Send "Hello Server" to all connected clients at a regular interval (simulating tick)
-        if int(round(time.time()*1000)) % 16 == 0:
-            server_message = "Hello Server".encode('utf-8')
-            for sock in client_sockets:
-                try:
-                    sock.sendall(struct.pack("!I", len(server_message)))
-                    sock.sendall(server_message)
-                except Exception as e:
-                    print(f"Error sending to client {clients[sock]}: {e}")
+        # if int(round(time.time()*1000)) % 16 == 0:
+        #     server_message = "Hello Server".encode('utf-8')
+        #     for sock in client_sockets:
+        #         try:
+        #             sock.sendall(struct.pack("!I", len(server_message)))
+        #             sock.sendall(server_message)
+        #         except Exception as e:
+        #             print(f"Error sending to client {clients[sock]}: {e}")
                     # Handle disconnection if necessary
 
         time.sleep(0.016) # Roughly 60 ticks per second

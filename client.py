@@ -39,6 +39,14 @@ class Client:
         self.starttime = starttime
         self.server_socket = None # Will be set from the main client script
 
+    def receive_hit_confirmation(self, note_id, judgment): 
+        """ This is where we actually record that a note was hit, so it stops
+        being drawn on the screen. This is called from snowfall_client when it
+        receives a message from the server indicating that a note was hit. """
+        print(f"Received hit confirmation: {note_id}, {judgment}")
+        self.gamestate.notes['notes'][note_id]['judgment'] = judgment # set the judgment of the note to the one we received
+
+
     def set_socket(self, server_socket):
         self.server_socket = server_socket
 
@@ -48,17 +56,18 @@ class Client:
         pygame.init()
         self.screen = pygame.display.set_mode((1080, 720))
         pygame.display.set_caption(f"Game: {self.name}")
-        self.notes = parse_chart('./charts/basic.chart')
-        print(self.notes)
-        self.client_loop()
+        self.gamestate.notes = parse_chart('./charts/basic.chart')
+        print(self.gamestate.notes)
+        return self.client_loop()
 
 
     def client_loop(self):
         while True:
             note_queue = {1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: []}
             elapsed_time = 1000 * (time.time() - self.starttime)
-            for note in self.notes['notes']:
+            for note in self.gamestate.notes['notes']:
                 if note['judgment'] != "":
+                    # print(f"should stop drawing {note['id']} bc it has judgment {note['judgment']}")
                     continue
                 y_position = 0
                 note_time = note['time']
@@ -70,10 +79,9 @@ class Client:
                         note_queue[note['lane']].append(note) # okay, the note is hittable now
                     pygame.draw.circle(self.screen, (255, 255, 255), (x_position, int(y_position)), 10)
                 if y_position > 700:
-                    print('miss')
+                    # print('miss')
                     self.gamestate.recent_id = note['id']
                     self.gamestate.recent_judgment = "No Credit"
-                    note['judgment'] = self.gamestate.recent_judgment
             
             for event in pygame.event.get():
                 key = 0
@@ -104,13 +112,11 @@ class Client:
                         acc = accuracy(current_note, elapsed_time, key)
                         self.gamestate.recent_judgment = norman(acc)
                         self.gamestate.recent_id = current_note['id']
-                        if acc > 0:
-                            current_note['judgment'] = self.gamestate.recent_judgment
                         print(current_note)
 
-                if event.type == pygame.QUIT:
+                if event.type == pygame.QUIT or elapsed_time >= self.gamestate.notes['end']:
                     pygame.quit()
-                    return
+                    return True
                 
             # Example: Send a message periodically from the Pygame loop (optional now)
             # if self.server_socket and int(round(time.time() * 1000)) % 1000 == 0:
