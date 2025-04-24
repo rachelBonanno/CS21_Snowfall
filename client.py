@@ -117,8 +117,10 @@ class Client:
         being drawn on the screen. This is called from snowfall_client when it
         receives a message from the server indicating that a note was hit. """
         # print(f"Received hit confirmation: {note_id}, {judgment}")
+        cur_j = self.gamestate.notes['notes'][note_id]['judgment']
         self.gamestate.notes['notes'][note_id]['judgment'] = judgment # set the judgment of the note to the one we received
-        self.announce(note_id, judgment)
+        if cur_j == judgment or judgment != 'No Credit': # announce if old and new are both NC or if new is not NC (don't announce NCs until both machines have indicated NC)
+            self.announce(note_id, judgment)
 
 
 
@@ -189,6 +191,9 @@ class Client:
                     x_position = (lane - 1) * 98 + 198
 
                     y_position = (elapsed_time - note_time) * SPEED  
+                    if y_position > JUDGE_Y and note['judgment'] != "": # other player has hit it, we stop drawing it at 700 so that it doesn't look choppy
+                        print(f"stop drawing this g.d. note {note['id']}")
+                        continue
                     if y_position > 400 and y_position < 800:
                         note_queue[note['lane']].append(note) # okay, the note is hittable now
                     
@@ -240,9 +245,7 @@ class Client:
                     else: # not held note
                         # render note
                         self.screen.blit(note_image, (x_position - 32, int(y_position) - 31)) 
-                if y_position > 700 and note['judgment'] != "": # other player has hit it, we stop drawing it at 700 so that it doesn't look choppy
-                    print(f"stop drawing this g.d. note {note['id']}")
-                    continue
+                
                 if y_position > 700 and note['duration'] == 0 and note['holding'] == False:
                     # print('miss')
                     self.gamestate.recent_id = note['id']
