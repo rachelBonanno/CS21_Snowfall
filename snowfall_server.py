@@ -37,6 +37,7 @@ def main():
 
     # creating server object
     server = Server(stats=Stats.empty_stats(), gamestate=Gamestate.empty_gamestate()) 
+    print(args.chart)
     server.parse_chart(args.chart)
     print(server.gamestate.notes)
     clients_lock = threading.Lock()
@@ -54,7 +55,7 @@ def main():
     
     # tell clients we accepted them, then wait for them to send their names
     # send a time 2 seconds into the future so that we can start syncing then
-    future_time = time.time() + 2  # Current time + 2 seconds
+    future_time = time.time() + 3  # Current time + 2 seconds
     future_time_bytes = struct.pack("!d", future_time) # pack the time as a double
 
 

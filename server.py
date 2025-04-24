@@ -30,7 +30,7 @@ class Server:
 
     def parse_chart(self, chartpath):
         print("parsing chart")
-        with open(chartpath, 'r') as file:
+        with open(chartpath, 'r', encoding="utf-8") as file:
             data = json.load(file)
         print(data)
         self.gamestate.notes = data # doesn't need to be locked as this is only done once

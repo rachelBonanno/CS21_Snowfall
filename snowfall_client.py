@@ -38,8 +38,8 @@ def main():
 
     # Receive connection response from server
     data = server_socket.recv(1024) 
-    if data:
-        print(f"Received: {data.decode()}")
+    # if data:
+    #     print(f"Received: {data.decode()}")
 
     # Send name length and name to the server
     name_bytes = name.encode()
@@ -48,8 +48,8 @@ def main():
 
     # Receive acknowledgment for connection
     data = server_socket.recv(1024)  
-    if data:
-        print(f"Received: {data.decode()}")
+    # if data:
+    #     print(f"Received: {data.decode()}")
     server_socket.send(b"ACK")
 
     # Receive the future time from the server
@@ -107,11 +107,11 @@ def receive_messages(server_socket, client_name, client_instance, stop_event):
                 client_id, note_id, note_judgment = message.split(", ")
                 note_id = int(note_id.strip())
                 note_judgment = note_judgment.strip()
-                print(f"Parsed message - Client ID: {client_id}, Note ID: {note_id}, Note Judgment: {note_judgment}")
+                # print(f"Parsed message - Client ID: {client_id}, Note ID: {note_id}, Note Judgment: {note_judgment}")
             except ValueError as e:
                 print(f"Error parsing message: {e}", file=sys.stderr)
                 continue
-            print(f"{client_name} received: {message}")
+            # print(f"{client_name} received: {message}")
             client_instance.receive_hit_confirmation(note_id, note_judgment)
             # use to update the gamestate 
         except Exception as e:
@@ -142,7 +142,7 @@ def send_messages(server_socket, client_name, client, stop_event):
 
             # Prepare the data to send
             data_to_send = f"{client_name}, {recent_id}, {recent_judgment}".encode()
-            print(f"sending: {data_to_send}")
+            # print(f"sending: {data_to_send}")
 
             # Send the length of the data followed by the data itself
             server_socket.sendall(struct.pack("!I", len(data_to_send)))
