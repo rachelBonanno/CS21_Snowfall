@@ -121,6 +121,7 @@ class Client:
         self.announce(note_id, judgment)
 
 
+
     def set_socket(self, server_socket):
         self.server_socket = server_socket
 
@@ -137,14 +138,15 @@ class Client:
         
         pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.init()
-        # flags = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
-        self.screen = pygame.display.set_mode((1080, 720)) # pygame.display.set_mode((1080, 720), flags)
+        flags = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
+        self.screen = pygame.display.set_mode((1080, 720), flags)
         pygame.display.set_caption(f"Game: {self.name}")
         for note in self.gamestate.notes['notes']:
 
             # flags used only at runtime
             note['holding']   = False      # latch state for holds
             note['completed'] = False 
+            note['finished'] = False # drawing
         # print(self.gamestate.notes)
         while time.time() < self.starttime:
             time.sleep(0.01)
@@ -177,12 +179,12 @@ class Client:
                 note = self.gamestate.notes['notes'][i]
                 if note['time'] > elapsed_time + 2000:
                     break                         # two seconds ahead -> stop scanning
-                if note['judgment'] != "":
+                if note['finished'] == True:
                     # print(f"should stop drawing {note['id']} bc it has judgment {note['judgment']}")
                     continue
                 y_position = 0
                 note_time = note['time']
-                if elapsed_time >= note_time or (note['id'] == self.gamestate.recent_id and elapsed_time >= self.gamestate.recent_position):
+                if elapsed_time >= note_time:
                     lane = note['lane']
                     x_position = (lane - 1) * 98 + 198
 
@@ -238,10 +240,11 @@ class Client:
                     else: # not held note
                         # render note
                         self.screen.blit(note_image, (x_position - 32, int(y_position) - 31)) 
+                if y_position > 700 and note['judgment'] != "": # other player has hit it, we stop drawing it at 700 so that it doesn't look choppy
+                    continue
                 if y_position > 700 and note['duration'] == 0 and note['holding'] == False:
                     # print('miss')
                     self.gamestate.recent_id = note['id']
-                    self.gamestate.recent_position = y_position
                     self.gamestate.recent_judgment = "No Credit"
                 if note['duration'] > 0 and not note['completed']:
                     tail_time = note['time'] + note['duration'] + JUDGE_Y  # same JUDGE_Y ms leniency
@@ -250,7 +253,6 @@ class Client:
                         note['completed'] = True
                         self.gamestate.recent_id       = note['id']
                         self.gamestate.recent_judgment = "No Credit"
-                        self.gamestate.recent_position = y_position
                         self.active_holds.pop(note['lane'], None)      # if we were still holding
             t1 = perf_counter()
             for event in pygame.event.get():
@@ -261,7 +263,7 @@ class Client:
                     lane = LANE_KEY[event.key]
                     self.pressed_keys.add(lane)
 
-                    # ---- HIT-DETECTION (exactly what you already had) ----
+                    # ---- HIT-DETECTION ----
                     if lane in self.active_lanes():
                         curnotes = [n for n in note_queue[lane] if n['judgment'] == ""]
                         if curnotes:
@@ -270,6 +272,7 @@ class Client:
                             if note['duration'] == 0:
                                 self.gamestate.recent_judgment = norman(acc)
                                 self.gamestate.recent_id       = note['id']
+                                self.gamestate.notes['notes'][note['id']]['finished'] = True # we have hit the note so we can stop drawing it
                             elif acc > 0:
                                 note['holding'] = True
                                 self.active_holds[lane] = note
@@ -286,6 +289,7 @@ class Client:
                         note['completed']           = True
                         self.gamestate.recent_id    = note['id']
                         self.gamestate.recent_judgment = j
+                        self.gamestate.notes['notes'][note['id']]['finished'] = True # we have hit the note so we can stop drawing it
 
                     # Display the key image at the specified position
                     # self.screen.blit(key_image, key_position)
