@@ -29,22 +29,22 @@ class Server:
         self.gamestatelock = threading.Lock() # lock for gamestate
 
     def parse_chart(self, chartpath):
-        print("parsing chart")
+        # print("parsing chart")
         with open(chartpath, 'r', encoding="utf-8") as file:
             data = json.load(file)
-        print(data)
+        print(f"Chart at {chartpath} loaded successfully!")
         self.gamestate.notes = data # doesn't need to be locked as this is only done once
 
     def receive_score(self, note_id, judgment):
-        print(f"Received score: {note_id}, {judgment}")
+        print(f"Received judgment {judgment} for note {note_id}.")
         score = calcscore(judgment)
         tellOtherPlayer = False
         with self.gamestatelock:
             # print(self.gamestate.notes)
             our_note = self.gamestate.notes['notes'][note_id]  # get the note from the gamestate
-            print(f"our note: {our_note}, judgment: {judgment}, our judgment: {our_note['judgment']}")
+            # print(f"our note: {our_note}, judgment: {judgment}, our judgment: {our_note['judgment']}")
             if judgment == 'No Credit' and our_note['judgment'] == 'No Credit': # case where both players miss
-                print("!!!!!!!!!!!! in missed note case")
+                # print("!!!!!!!!!!!! in missed note case")
                 # then we actually have a miss
                 self.gamestate.combo = 0 # reset combo
                 tellOtherPlayer = True    
@@ -56,7 +56,7 @@ class Server:
                 self.stats.update_max_combo(self.gamestate.combo)
                 tellOtherPlayer = True
             # else we don't do anything and we don't need to inform anyone
-        print(f"new score: {self.gamestate.score}, new combo: {self.gamestate.combo}")
+        print(f"New score: {self.gamestate.score}, new combo: {self.gamestate.combo}")
         return tellOtherPlayer
 
 

@@ -51,7 +51,7 @@ def main():
         client_socket, client_address = server_socket.accept()
         print(f"Accepted connection from {client_address}")
         with clients_lock:
-            clients[client_socket] =  ""
+            clients[client_socket] =  ("", "")
     
     # tell clients we accepted them, then wait for them to send their names
     # send a time 2 seconds into the future so that we can start syncing then
@@ -68,7 +68,7 @@ def main():
         thread.join()
     
 
-    print("client names:", client_names)
+    # print("client names:", client_names)
 
     # after syncing we can do gameplay stuff:
     # message receiving loop
@@ -107,9 +107,9 @@ def connect_client(clients, client, clients_lock, future_time, name_array):
         client_name = client_name_bytes.decode('utf-8').strip()
 
         with clients_lock:
-            clients[client] = client_name
+            clients[client] = (client_name, "")
             name_array[client] = client_name
-            print(f"This player has joined!:", client_name)
+            print(f"This player has joined:", client_name)
 
         client.send(b"Connection Established")
 
@@ -138,6 +138,26 @@ def connect_client(clients, client, clients_lock, future_time, name_array):
         ack = ack_bytes.decode('utf-8').strip()
         if ack != "ACK":
             print(f"{client_name} did not acknowledge future time!", file=sys.stderr)
+
+
+        ping_bytes = struct.pack("!d", "ping!")
+        ping = time.time()
+        client.sendall(ping_bytes)
+
+        ack_pong = recv_data(client, 5)
+        pong = time.time() - ping
+        if not ack_pong:
+            print(f"{client_name} disconnected before ponging server ping.", file=sys.stderr)
+            with clients_lock:
+                del clients[client]
+            return
+        ack = ack_pong.decode('utf-8').strip()
+        if ack != "pong!":
+            print(f"{client_name} did not acknowledge future time!", file=sys.stderr)
+        with clients_lock:
+            client_name, _ = clients[client]
+            clients[client] = (client_name, pong)
+            print(f"{client_name} has ping {pong}")
 
     except Exception as e:
         print(f"Error in connect_client for {client_name}: {e}", file=sys.stderr)
@@ -195,7 +215,7 @@ def gameplay(clients, server):
                     client_id, note_id, note_judgment = message.split(", ")
                     note_id = int(note_id.strip())
                     note_judgment = note_judgment.strip()
-                    print(f"Parsed message - Client ID: {client_id}, Note ID: {note_id}, Note Judgment: {note_judgment}")
+                    # print(f"Parsed message - Client ID: {client_id}, Note ID: {note_id}, Note Judgment: {note_judgment}")
                     
                 except ValueError as e:
                     print(f"Error parsing message from {clients[sock]}: {e}", file=sys.stderr)
@@ -204,7 +224,7 @@ def gameplay(clients, server):
                 if notify:
                     message = message.encode('utf-8')
                     for soc in client_sockets: # tell all clients that a note was hit
-                        print(f"sending {message} to {soc}")
+                        # print(f"sending {message} to {soc}")
                         soc.sendall(struct.pack("!I", len(message)))
                         soc.sendall(message)
 

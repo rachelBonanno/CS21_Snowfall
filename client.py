@@ -48,6 +48,19 @@ LANE_POS = {
     5:(558,650), 6:(656,650), 7:(754,650), 8:(852,650),
 }
 
+
+        
+body_image = pygame.image.load('./assets/long_p1.png')
+body_width, body_height = body_image.get_size()
+
+head_image = pygame.image.load('./assets/note_p1.png')
+head_image = pygame.transform.scale(head_image, (64, 62)) 
+
+
+note_image = pygame.image.load('./assets/note_p1.png')
+note_image = pygame.transform.scale(note_image, (64, 62))  # Adjust size as needed
+background_image = pygame.image.load('./assets/main_screen.png')
+
 def parse_chart(filepath):
         with open(filepath, 'r') as file:
             data = json.load(file)
@@ -87,10 +100,18 @@ class Client:
         self.active_holds = {}
         self.release_window = 0.15 # should probably be a global but I CBA
         self.visible_index = 0
+        self.last_announced_id = -1
         self.pressed_keys = set()
     def active_lanes(self):
         """Return the right-most (max index) two lanes currently held."""
         return set(sorted(self.pressed_keys)[-2:])
+
+    def announce(self, note_id, judgment):
+        """Show a new judgment only if this note hasn’t been announced."""
+        if note_id != self.last_announced_id:
+            self.gamestate.recent_id       = note_id
+            self.gamestate.recent_judgment = judgment
+            self.last_announced_id         = note_id
 
     def receive_hit_confirmation(self, note_id, judgment): 
         """ This is where we actually record that a note was hit, so it stops
@@ -98,6 +119,7 @@ class Client:
         receives a message from the server indicating that a note was hit. """
         # print(f"Received hit confirmation: {note_id}, {judgment}")
         self.gamestate.notes['notes'][note_id]['judgment'] = judgment # set the judgment of the note to the one we received
+        self.announce(note_id, judgment)
 
 
     def set_socket(self, server_socket):
@@ -116,12 +138,6 @@ class Client:
         
         pygame.mixer.pre_init(44100, -16, 2, 512)
         pygame.init()
-        print(self.starttime - time.time() + song_offset)
-        play_delay = max(0, self.starttime - time.time() + song_offset)
-        print(play_delay)
-        pygame.time.set_timer(pygame.USEREVENT + 1, int(play_delay*1000), loops=1)
-        pygame.mixer.music.load(audio_path)
-        pygame.mixer.music.set_volume(0.05) # this mf is LOUD
         flags = pygame.HWSURFACE | pygame.DOUBLEBUF | pygame.SCALED
         self.screen = pygame.display.set_mode((1080, 720), flags)
         pygame.display.set_caption(f"Game: {self.name}")
@@ -133,22 +149,20 @@ class Client:
         # print(self.gamestate.notes)
         while time.time() < self.starttime:
             time.sleep(0.01)
+        
+        print(self.starttime - time.time() + song_offset)
+        play_delay = max(0, self.starttime - time.time() + song_offset)
+        print(play_delay)
+        pygame.time.set_timer(pygame.USEREVENT + 1, int(play_delay*1000), loops=1)
+        pygame.mixer.music.load(audio_path)
+        pygame.mixer.music.set_volume(0.05) # this mf is LOUD
+        print(f"starting client loop at {time.time()}")
+
         return self.client_loop()
 
 
     def client_loop(self):
         clock = pygame.time.Clock()
-        
-        body_image = pygame.image.load('./assets/long_p1.png')
-        body_width, body_height = body_image.get_size()
-        
-        head_image = pygame.image.load('./assets/note_p1.png')
-        head_image = pygame.transform.scale(head_image, (64, 62)) 
-
-        
-        note_image = pygame.image.load('./assets/note_p1.png')
-        note_image = pygame.transform.scale(note_image, (64, 62))  # Adjust size as needed
-        background_image = pygame.image.load('./assets/main_screen.png')
         frame = 0
         while True:
             t0 = perf_counter()
@@ -242,56 +256,6 @@ class Client:
                 if event.type == pygame.USEREVENT + 1:
                     print("playing")
                     pygame.mixer.music.play()
-                # key = 0
-                # if event.type == pygame.KEYDOWN:
-                #     if event.key == pygame.K_q:
-                #         key = 1
-                #         key_image = KEY_IMAGES[key]
-                #         key_position = (198 - 32, 650)  
-                #     elif event.key == pygame.K_w:
-                #         key = 2
-                #         key_image = KEY_IMAGES[key]
-                #         key_position = (296 - 32, 650)  
-                #     elif event.key == pygame.K_e:
-                #         key = 3
-                #         key_image = KEY_IMAGES[key]
-                #         key_position = (394 - 32, 650) 
-                #     elif event.key == pygame.K_r:
-                #         key = 4
-                #         key_image = KEY_IMAGES[key]
-                #         key_position = (492 - 32, 650) 
-                #     elif event.key == pygame.K_o:
-                #         key = 5
-                #         key_image = KEY_IMAGES[key]
-                #         key_position = (590 - 32, 650)  
-                #     elif event.key == pygame.K_p:
-                #         key = 6
-                #         key_image = KEY_IMAGES[key]
-                #         key_position = (688 - 32, 650) 
-                #     elif event.key == pygame.K_LEFTBRACKET:
-                #         key = 7
-                #         key_image = KEY_IMAGES[key]
-                #         key_position = (786 - 32, 650)  
-                #     elif event.key == pygame.K_RIGHTBRACKET:
-                #         key = 8
-                #         key_image = KEY_IMAGES[key]
-                #         key_position = (884 - 32, 650)  
-
-                #     if 1 <= key <= 8:
-                #         curnotes = [n for n in note_queue[key] if n['judgment'] == ""] # list(note_queue[key])
-                #         # print(curnotes)
-                #         if not curnotes:
-                #             continue # ignore stray hits
-                #         current_note = curnotes[0]
-                #         acc = accuracy(current_note, elapsed_time, key)
-                #         judgment = norman(acc)
-                #         if current_note['duration'] == 0:
-                #             self.gamestate.recent_judgment = judgment
-                #             self.gamestate.recent_id = current_note['id']
-                #         else:
-                #             if acc > 0:
-                #                 current_note['holding'] = True
-                #                 self.active_holds[key] = current_note
                 if event.type == pygame.KEYDOWN and event.key in LANE_KEY:
                     lane = LANE_KEY[event.key]
                     self.pressed_keys.add(lane)
@@ -336,6 +300,7 @@ class Client:
 
             # Render the judgment image in the top center of the screen
             if self.gamestate.recent_judgment in JUDGMENT_IMAGES:
+                # print(f"got judgment {self.gamestate.recent_judgment}")
                 judgment_image = JUDGMENT_IMAGES[self.gamestate.recent_judgment]
                 image_rect = judgment_image.get_rect(center=(self.screen.get_width() // 2, 50))
                 self.screen.blit(judgment_image, image_rect)
