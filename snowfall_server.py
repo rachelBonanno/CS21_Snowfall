@@ -76,6 +76,15 @@ def main():
 
     gameplay(clients, server)
     
+    print(f"Final score: {server.gamestate.score}\nMax combo: {server.stats.max_combo}")
+    print(f"Excellent: {sum([(i['judgment'] == 'Excellent') for i in server.gamestate.notes['notes']])}")
+    print(f"Very Good: {sum([(i['judgment'] == 'Very Good') for i in server.gamestate.notes['notes']])}")
+    print(f"Good:      {sum([(i['judgment'] == 'Good') for i in server.gamestate.notes['notes']])}")
+    print(f"Fair:      {sum([(i['judgment'] == 'Fair') for i in server.gamestate.notes['notes']])}")
+    print(f"Poor:      {sum([(i['judgment'] == 'Poor') for i in server.gamestate.notes['notes']])}")
+    print(f"No Credit: {sum([(i['judgment'] == 'No Credit') for i in server.gamestate.notes['notes']])}")
+    
+
     # close the server socket
     server_socket.close()
     
