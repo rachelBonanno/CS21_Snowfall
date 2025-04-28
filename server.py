@@ -1,12 +1,24 @@
+# server.py
+# CS21 Concurrent Programming
+# Final Project -- Snowfall
+# Team Snowfall -- Stephanie Wilson, Rachel Bonanno, Justin Millette
+# 4/28/25
+#
+# This file defines the server-side, gameplay-related logic during the runtime 
+# of Snowfall. The main purpose of this is to handle note-hit messages, and 
+# determine if that message needs to be passed back to the clients. This also
+# handles chart file parsing on the server side.
+
 import json
 import threading
 
 def better(judgment1, judgment2):
+    """ Returns true if judgment1 is better than judgment2. E > VG > G > F > P > NC. """ 
     judgments = ['No Credit', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
     return judgments.index(judgment1) > judgments.index(judgment2)
 
 def calcscore(judgment):
-    # scoring system
+    """ Returns a number score to increment given a judgment string. """
     if judgment == 'No Credit':
         return 0
     elif judgment == 'Poor':
@@ -29,44 +41,34 @@ class Server:
         self.gamestatelock = threading.Lock() # lock for gamestate
 
     def parse_chart(self, chartpath):
-        # print("parsing chart")
-        with open(chartpath, 'r', encoding="utf-8") as file:
+        """ Turn chart at filepath into json object. """
+        with open(chartpath, 'r', encoding="utf-8") as file: # encoding UTF-8 to handle weird outputs from chart conversion script
             data = json.load(file)
         print(f"Chart at {chartpath} loaded successfully!")
-        self.gamestate.notes = data # doesn't need to be locked as this is only done once
+        with self.gamestatelock:
+            self.gamestate.notes = data 
 
     def receive_score(self, note_id, judgment):
-        print(f"Received judgment {judgment} for note {note_id}.")
-        score = calcscore(judgment)
-        tellOtherPlayer = False
-        with self.gamestatelock:
-            # print(self.gamestate.notes)
+        """ Handle received score: update single point of truth gamestate, stats object. 
+        Indicate if this information should be passed on to both clients. 
+        We should do this if both clients scored NC on this note, or when the first client
+        doesn't score NC. If we already have a non-NC judgment saved for a note, and we receive an
+        NC judgment, we don't care."""
+        score = calcscore(judgment) # assign points to the note for all of our very competitive players
+        tellOtherPlayer = False # update if we should send 
+        with self.gamestatelock: # both client listening threads could be here at the same time
             our_note = self.gamestate.notes['notes'][note_id]  # get the note from the gamestate
-            # print(f"our note: {our_note}, judgment: {judgment}, our judgment: {our_note['judgment']}")
             if judgment == 'No Credit' and our_note['judgment'] == 'No Credit': # case where both players miss
-                # print("!!!!!!!!!!!! in missed note case")
                 # then we actually have a miss
                 self.gamestate.combo = 0 # reset combo
                 tellOtherPlayer = True    
-            elif our_note['judgment'] == "" or our_note['judgment'] == 'No Credit': # case where we have a first time note from first player
+            elif our_note['judgment'] == "" or our_note['judgment'] == 'No Credit': # case where we have a first non-NC score
                 # when we get a first time note from first player - scoring when there's no score yet
                 our_note['judgment'] = judgment
                 self.gamestate.update_score(score)
-                self.gamestate.combo += 1
-                self.stats.update_max_combo(self.gamestate.combo)
+                if judgment != 'No Credit':
+                    self.gamestate.combo += 1 # increment combo if the note was hit
+                    self.stats.update_max_combo(self.gamestate.combo) # update max combo
                 tellOtherPlayer = True
             # else we don't do anything and we don't need to inform anyone
-        print(f"New score: {self.gamestate.score}, new combo: {self.gamestate.combo}")
         return tellOtherPlayer
-
-
-
-
-# each tick (we expect that ticks are fast enough that scoring accuracy is doable):
-# merge these into server Gamestate – this should only affect lane states
-# check if there’s a note near enough to the judgment line to score it, if lane state for that note is pressed:
-# score accuracy if there is one
-# Logs stats (accuracy of note, new best combo)
-# Update game state (new score, new accuracy as most recent judgment, new current combo)
-# Get new timestamp and send gamestate object to each connected client 
-# 		After gameplay, send Stats object to connected clients, and await inputs for a new game
