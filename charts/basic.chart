@@ -33,5 +33,7 @@
         { "id": 30, "time": 15500, "lane": 7, "judgment": "", "duration": 0 },
         { "id": 31, "time": 16000, "lane": 8, "judgment": "", "duration": 0 }
     ],
-    "end": 18000
+    "end": 18000,
+    "audio": "Imprinting.MP3",
+    "offset": 0
 }
