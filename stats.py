@@ -15,7 +15,7 @@ class Stats:
     
     @staticmethod
     def empty_stats():
-        """ Creates a new stats object and initializes it to have zero everything. """
+        """ Creates a new stats object and initializes it to have zeroes. """
         return Stats(0, 0, 0)
 
     def update_max_combo(self, new_combo):

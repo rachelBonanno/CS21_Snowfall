@@ -28,10 +28,14 @@ def main():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # parse command-line arguments
-    parser = argparse.ArgumentParser(description="Client for connecting to a server.")
-    parser.add_argument('--host', type=str, required=True, help='Server hostname or IP address')
-    parser.add_argument('--port', type=int, required=True, help='Server port number')
-    parser.add_argument('--chart', type=str, default='./charts/basic.chart', help='Path to the chart file.')
+    parser = argparse.ArgumentParser(
+        description="Client for connecting to a server.")
+    parser.add_argument('--host', type=str, required=True, 
+                        help='Server hostname or IP address')
+    parser.add_argument('--port', type=int, required=True, 
+                        help='Server port number')
+    parser.add_argument('--chart', type=str, default='./charts/basic.chart', 
+                        help='Path to the chart file.')
     parser.add_argument('--name', type=str, required=True, help='Client name')
     args = parser.parse_args()
 
@@ -48,7 +52,8 @@ def main():
         server_socket.connect((host, port))
         print(f"Connected to server at {host}:{port}")
     except socket.error as e:
-        print(f"Error connecting to server at {host}:{port}: {e}", file=sys.stderr)
+        print(f"Error connecting to server at {host}:{port}: {e}", 
+              file=sys.stderr)
 
     # receive connection response from server
     data = server_socket.recv(1024) 
@@ -76,12 +81,17 @@ def main():
 
     
     # create client object (runs game)
-    client_game = Client(name=name, gamestate=Gamestate.empty_gamestate(), stats=Stats.empty_stats(), starttime=future_time)
+    client_game = Client(name=name, gamestate=Gamestate.empty_gamestate(), 
+                         starttime=future_time)
     client_game.set_socket(server_socket)  
     
     # start threads for sending and receiving messages
-    receive_thread = threading.Thread(target=receive_messages, args=[server_socket, name, client_game, stop_event])
-    send_thread = threading.Thread(target=send_messages, args=[server_socket, name, client_game, stop_event])
+    receive_thread = threading.Thread(target=receive_messages, 
+                                      args=[server_socket, name, 
+                                            client_game, stop_event])
+    send_thread = threading.Thread(target=send_messages, 
+                                   args=[server_socket, name, client_game, 
+                                         stop_event])
     # this helps prevent errors with sockets passing messages around
     receive_thread.daemon = True
     send_thread.daemon = True
@@ -106,28 +116,34 @@ def receive_messages(server_socket, client_name, client_instance, stop_event):
     messsage receiving follows this pattern:
         - recv waits for 4 byte int indicating how much data to receive
         - then we recv again and wait for that much data
-        - we split up that message (which is always a note confirmation from the server)
-        - use that to call the gameplay client's "receive_hit_confirmation" method
+        - we split up that message (which is always a note confirmation from 
+            the server)
+        - use that to call the gameplay client's "receive_hit_confirmation" 
+            method
         - repeat
-    This repeats until told to stop by "stop_event." If any recv fails, this is because
-    the server has stopped for some reason. In that case we break and tell all threads to quit.
+    This repeats until told to stop by "stop_event." If any recv fails, this is
+    because the server has stopped for some reason. In that case we break and 
+    tell all threads to quit.
     """
     while not stop_event.is_set(): # go until told to stop
         try:
             len_data_bytes = server_socket.recv(4)
             if not len_data_bytes:
-                print(f"{client_name}: Connection to server closed (receiving).")
+                print(f"{client_name}: Connection to server closed \
+                       (receiving).")
                 stop_event.set()
                 break
             message_length = struct.unpack("!I", len_data_bytes)[0]
             message_bytes = server_socket.recv(message_length)
             if not message_bytes:
-                print(f"{client_name}: Connection to server closed (receiving).")
+                print(f"{client_name}: Connection to server closed \
+                       (receiving).")
                 stop_event.set()
                 break
             message = message_bytes.decode('utf-8')
             try:
-                _, note_id, note_judgment = message.split(", ") # first split is client id, which we don't care about
+                # first split is client id, which we don't care about
+                _, note_id, note_judgment = message.split(", ")
                 note_id = int(note_id.strip())
                 note_judgment = note_judgment.strip()
             except ValueError as e:
@@ -136,7 +152,8 @@ def receive_messages(server_socket, client_name, client_instance, stop_event):
             client_instance.receive_hit_confirmation(note_id, note_judgment)
         except Exception as e:
             msg = str(e)
-            if "established connection was aborted" in msg: # server has stopped
+            # server has stopped
+            if "established connection was aborted" in msg: 
                 print(f"The server has stopped. Closing client...")
                 client_instance.gamestate.outbox.put(None)
             else:
@@ -150,11 +167,14 @@ def send_messages(server_socket, client_name, client, stop_event):
         - whenever 
         - send 4 byte int indicating how much data to receive
         - send that much data
-        - we split up that message (which is always a note confirmation from the server)
-        - use that to call the gameplay client's "receive_hit_confirmation" method
+        - we split up that message (which is always a note confirmation from 
+            the server)
+        - use that to call the gameplay client's "receive_hit_confirmation" 
+            method
         - repeat
-    This repeats until told to stop by "stop_event." If any recv fails, this is because
-    the server has stopped for some reason. In that case we break and tell all threads to quit.
+    This repeats until told to stop by "stop_event." If any recv fails, this is
+    because the server has stopped for some reason. In that case we break and 
+    tell all threads to quit.
     """
     while not stop_event.is_set():
         # Check if the recent_id has changed and hasn't been sent before

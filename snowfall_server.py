@@ -29,9 +29,12 @@ import select
 def main():
     # arg parsing for server
     parser = argparse.ArgumentParser(description="Start the Snowfall server.")
-    parser.add_argument('--host', type=str, default='127.0.0.1', help='Host to bind the server to.')
-    parser.add_argument('--port', type=int, default=65432, help='Port to bind the server to.')
-    parser.add_argument('--chart', type=str, default='./charts/basic.chart', help='Path to the chart file.')
+    parser.add_argument('--host', type=str, default='127.0.0.1', 
+                        help='Host to bind the server to.')
+    parser.add_argument('--port', type=int, default=65432, 
+                        help='Port to bind the server to.')
+    parser.add_argument('--chart', type=str, default='./charts/basic.chart', 
+                        help='Path to the chart file.')
     args = parser.parse_args()
 
     host = args.host
@@ -44,7 +47,8 @@ def main():
     print(f"Server started on {host}:{port}")
 
     # creating server object
-    server = Server(stats=Stats.empty_stats(), gamestate=Gamestate.empty_gamestate()) 
+    server = Server(stats=Stats.empty_stats(), 
+                    gamestate=Gamestate.empty_gamestate()) 
     server.parse_chart(args.chart)
     
     # connecting clients
@@ -65,7 +69,10 @@ def main():
 
     # start client connecting threads
     for client_socket in list(clients.keys()):  
-        thread = threading.Thread(target=connect_client, args=[clients, client_socket, clients_lock, future_time, client_names])
+        thread = threading.Thread(target=connect_client, 
+                                  args=[clients, client_socket, 
+                                        clients_lock, future_time, 
+                                        client_names])
         client_threads.append(thread)
         thread.start()
     
@@ -76,36 +83,52 @@ def main():
     gameplay(clients, server)
     
     # print stats to terminal after gameplay
-    print(f"Final score: {server.gamestate.score}\nMax combo: {server.stats.max_combo}")
-    print(f"Excellent: {sum([(i['judgment'] == 'Excellent') for i in server.gamestate.notes['notes']])}")
-    print(f"Very Good: {sum([(i['judgment'] == 'Very Good') for i in server.gamestate.notes['notes']])}")
-    print(f"Good:      {sum([(i['judgment'] == 'Good') for i in server.gamestate.notes['notes']])}")
-    print(f"Fair:      {sum([(i['judgment'] == 'Fair') for i in server.gamestate.notes['notes']])}")
-    print(f"Poor:      {sum([(i['judgment'] == 'Poor') for i in server.gamestate.notes['notes']])}")
-    print(f"No Credit: {sum([(i['judgment'] == 'No Credit') for i in server.gamestate.notes['notes']])}")
+    notes = server.gamestate.notes["notes"]
+
+    labels = [
+        "Excellent", "Very Good", "Good", "Fair", "Poor", "No Credit"
+    ]
+
+    counts = {
+        lab: sum(n["judgment"] == lab for n in notes)
+        for lab in labels
+    }
+
+    print(f"Final score: {server.gamestate.score}")
+    print(f"Max combo  : {server.stats.max_combo}")
+
+    for lab in labels:
+        print(f"{lab:<11}: {counts[lab]}")
     
     # close the server socket
     server_socket.close()
 
 def connect_client(clients, client, clients_lock, future_time, name_array):
     """
-    Handles the connection process for a client in the server-client architecture.
-    This function performs the following steps:
+    Handles the connection process for a client in the server-client 
+    architecture. This function performs the following steps:
     1. Requests and retrieves the client's name.
-    2. Updates the shared `clients` and `name_array` dictionaries with the client's information.
-    3. Sends a connection acknowledgment to the client and waits for the client to acknowledge.
+    2. Updates the shared `clients` and `name_array` dictionaries with the 
+        client's information.
+    3. Sends a connection acknowledgment to the client and waits for the client
+        to acknowledge.
     4. Measures the round-trip time (ping) between the server and the client.
-    5. Sends a future time value to the client, adjusted by the measured ping, and waits for acknowledgment.
+    5. Sends a future time value to the client, adjusted by the measured ping, 
+        and waits for acknowledgment.
     
-    - If the client disconnects or fails to respond at any step, the client is removed from the `clients` dictionary.
-    - The function ensures proper synchronization when modifying shared resources using the `clients_lock`.
-    - The function expects the client to follow a specific protocol for communication, including sending acknowledgments.
+    - If the client disconnects or fails to respond at any step, the client is 
+        removed from the `clients` dictionary.
+    - The function ensures proper synchronization when modifying shared
+        resources using the `clients_lock`.
+    - The function expects the client to follow a specific protocol for 
+        communication, including sending acknowledgments.
     """
     client.send(b"Retrieving client name...")
     # receive the length of the name (4 byte int)
     name_length_bytes = recv_data(client, 4)
     if not name_length_bytes:
-        print("Client disconnected before sending name length.", file=sys.stderr)
+        print("Client disconnected before sending name length.", 
+              file=sys.stderr)
         with clients_lock:
             del clients[client]
         return
@@ -129,7 +152,8 @@ def connect_client(clients, client, clients_lock, future_time, name_array):
     # Wait for the client to acknowledge the connection
     ack_bytes = recv_data(client, 3)
     if not ack_bytes:
-        print(f"{client_name} disconnected before acknowledging connection.", file=sys.stderr)
+        print(f"{client_name} disconnected before acknowledging connection.", 
+              file=sys.stderr)
         with clients_lock:
             del clients[client]
         return
@@ -144,7 +168,8 @@ def connect_client(clients, client, clients_lock, future_time, name_array):
     ack_pong = recv_data(client, 5)
     pong = time.time() - ping
     if not ack_pong:
-        print(f"{client_name} disconnected before ponging server ping.", file=sys.stderr)
+        print(f"{client_name} disconnected before ponging server ping.", 
+              file=sys.stderr)
         with clients_lock:
             del clients[client]
         return
@@ -166,17 +191,19 @@ def connect_client(clients, client, clients_lock, future_time, name_array):
     # wait for the client to acknowledge the future time
     ack_bytes = recv_data(client, 3)
     if not ack_bytes:
-        print(f"{client_name} disconnected before acknowledging future time.", file=sys.stderr)
+        print(f"{client_name} disconnected before acknowledging future time.", 
+              file=sys.stderr)
         with clients_lock:
             del clients[client]
         return
     ack = ack_bytes.decode('utf-8').strip()
     if ack != "ACK":
-        print(f"{client_name} did not acknowledge future time!", file=sys.stderr)
+        print(f"{client_name} did not acknowledge future time!", 
+              file=sys.stderr)
 
 def gameplay(clients, server):
-    """ Gameplay logic. Listens for client note hits and then informs clients when 
-    to not draw notes anymore."""
+    """ Gameplay logic. Listens for client note hits and then informs clients 
+    when to not draw notes anymore."""
     client_sockets = list(clients.keys())
     # ensure two players are connected
     if len(client_sockets) != 2:
@@ -184,14 +211,18 @@ def gameplay(clients, server):
         return
 
     while True:
-        readable, _, _ = select.select(client_sockets, [], [], 0.01)  # wait until a socket has a message to parse
+        # wait until a socket has a message to parse
+        readable, _, _ = select.select(client_sockets, [], [], 0.01)  
         for sock in readable:
             try:
                 # get data length
                 len_data_bytes = recv_data(sock, 4)
                 if not len_data_bytes: # client DC
-                    print(f"Client {clients[sock]} disconnected.", file=sys.stderr)
-                    del clients[sock] # this pattern is to ensure that we never send anything to this client ever again after it disconnects
+                    print(f"Client {clients[sock]} disconnected.", 
+                          file=sys.stderr)
+                    # this pattern is to ensure that we never send anything to 
+                    # this client ever again after it disconnects
+                    del clients[sock] 
                     client_sockets.remove(sock)
                     if not client_sockets:
                         print("All clients disconnected. Ending gameplay.")
@@ -202,7 +233,8 @@ def gameplay(clients, server):
                 # get "length" much data
                 data_bytes = recv_data(sock, length)
                 if not data_bytes: # client DC
-                    print(f"Client {clients[sock]} disconnected during message.", file=sys.stderr)
+                    print(f"Client {clients[sock]} disconnected during \
+                          message.", file=sys.stderr)
                     del clients[sock]
                     client_sockets.remove(sock)
                     if not client_sockets:
@@ -212,31 +244,43 @@ def gameplay(clients, server):
                 
                 # Parse the received message
                 try:
-                    _, note_id, note_judgment = message.split(", ") # first is client ID and we don't care
+                    # first is client ID and we don't care
+                    _, note_id, note_judgment = message.split(", ") 
                     note_id = int(note_id.strip())
                     note_judgment = note_judgment.strip()
                 except ValueError as e:
-                    print(f"Error parsing message from {clients[sock]}: {e}", file=sys.stderr)
+                    print(f"Error parsing message from {clients[sock]}: {e}", 
+                          file=sys.stderr)
                     continue
-                notify = server.receive_score(note_id, note_judgment)  # Update server gamestate with received data
+                # Update server gamestate with received data
+                notify = server.receive_score(note_id, note_judgment)  
                 if notify:
                     message = message.encode('utf-8')
-                    for soc in client_sockets: # tell all clients that a note was hit
+                    # tell all clients that a note was hit
+                    for soc in client_sockets: 
                         soc.sendall(struct.pack("!I", len(message)))
                         soc.sendall(message)
             # if we got some error, treat it as client DC (which it is)
             except Exception as e:
-                print(f"Error handling client {clients[sock]}: {e}", file=sys.stderr)
-                del clients[sock] # make sure we never send anything to this client ever again
+                # this handles the error that shows up when a client 
+                # disconnects on Windows. This is untested on any other OS; 
+                # the side effects are just an unimportant error message 
+                # printed to standard error.
+                if "forcibly closed by the remote" not in str(e): 
+                    print(f"Error handling client {clients[sock]}: {e}", 
+                          file=sys.stderr)
+                # again make sure we never send anything to this client ever 
+                del clients[sock] 
                 client_sockets.remove(sock)
                 if not client_sockets: 
                     print("All clients disconnected. Ending gameplay.")
                     return
 
 def recv_data(client, length):
-    """ Receives data over sockets of given length. This was originally implemented because
-    we were planning to send a lot more data (charts and mp3 files) over the sockets, but we scrapped this.
-    This function still works for smaller data lengths, but normal recv would work just fine too."""
+    """ Receives data over sockets of given length. This was originally 
+    implemented because we were planning to send a lot more data (charts and 
+    mp3 files) over the sockets, but we scrapped this. This function still 
+    works for smaller data lengths, but normal recv would work just fine too."""
     data = b""
     while len(data) < length:
         packet = client.recv(length - len(data))

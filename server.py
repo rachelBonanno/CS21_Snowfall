@@ -13,7 +13,8 @@ import json
 import threading
 
 def better(judgment1, judgment2):
-    """ Returns true if judgment1 is better than judgment2. E > VG > G > F > P > NC. """ 
+    """ Returns true if judgment1 is better than judgment2. 
+    E > VG > G > F > P > NC. """ 
     judgments = ['No Credit', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
     return judgments.index(judgment1) > judgments.index(judgment2)
 
@@ -42,33 +43,42 @@ class Server:
 
     def parse_chart(self, chartpath):
         """ Turn chart at filepath into json object. """
-        with open(chartpath, 'r', encoding="utf-8") as file: # encoding UTF-8 to handle weird outputs from chart conversion script
+        # encoding UTF-8 to handle weird outputs from chart conversion script
+        with open(chartpath, 'r', encoding="utf-8") as file: 
             data = json.load(file)
         print(f"Chart at {chartpath} loaded successfully!")
         with self.gamestatelock:
             self.gamestate.notes = data 
 
     def receive_score(self, note_id, judgment):
-        """ Handle received score: update single point of truth gamestate, stats object. 
-        Indicate if this information should be passed on to both clients. 
-        We should do this if both clients scored NC on this note, or when the first client
-        doesn't score NC. If we already have a non-NC judgment saved for a note, and we receive an
-        NC judgment, we don't care."""
-        score = calcscore(judgment) # assign points to the note for all of our very competitive players
+        """ Handle received score: update single point of truth gamestate, 
+        stats object. Indicate if this information should be passed on to both 
+        clients. We should do this if both clients scored NC on this note, or 
+        when the first client doesn't score NC. If we already have a non-NC 
+        judgment saved for a note, and we receive an NC judgment, we don't 
+        care."""
+        # assign points to the note for all of our very competitive players
+        score = calcscore(judgment) 
         tellOtherPlayer = False # update if we should send 
-        with self.gamestatelock: # both client listening threads could be here at the same time
-            our_note = self.gamestate.notes['notes'][note_id]  # get the note from the gamestate
-            if judgment == 'No Credit' and our_note['judgment'] == 'No Credit': # case where both players miss
+        # both client listening threads could be here at the same time
+        with self.gamestatelock: 
+            # get the note from the gamestate
+            our_note = self.gamestate.notes['notes'][note_id]  
+            # case where both players miss
+            if judgment == 'No Credit' and our_note['judgment'] == 'No Credit': 
                 # then we actually have a miss
                 self.gamestate.combo = 0 # reset combo
                 tellOtherPlayer = True    
-            elif our_note['judgment'] == "" or our_note['judgment'] == 'No Credit': # case where we have a first non-NC score
-                # when we get a first time note from first player - scoring when there's no score yet
+            # case where we have a first non-NC score
+            elif our_note['judgment'] == "" or \
+                    our_note['judgment'] == 'No Credit': 
+                # scoring when there's no score yet
                 our_note['judgment'] = judgment
                 self.gamestate.update_score(score)
+                # increment combo if the note was hit
                 if judgment != 'No Credit':
-                    self.gamestate.combo += 1 # increment combo if the note was hit
-                    self.stats.update_max_combo(self.gamestate.combo) # update max combo
+                    self.gamestate.combo += 1 
+                    self.stats.update_max_combo(self.gamestate.combo) 
                 tellOtherPlayer = True
             # else we don't do anything and we don't need to inform anyone
         return tellOtherPlayer

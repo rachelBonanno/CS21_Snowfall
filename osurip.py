@@ -1,5 +1,17 @@
+# osurip.py
+# CS21 Concurrent Programming
+# Final Project -- Snowfall
+# Team Snowfall -- Stephanie Wilson, Rachel Bonanno, Justin Millette
+# 4/28/25
+#
+# This file is a script that takes in a .osu file, and produces a .chart file
+# formatted for use in the game Snowfall. Some of this code was modified based
+# on a osu! forum post for parsing .osu files.
+#
+# Usage: python osurip.py song.osu /path/to/output.chart
+
 from pathlib import Path
-import json, re, sys, math, configparser
+import json, sys
 
 def get_general_tags(path):
     audio = None
@@ -19,7 +31,7 @@ def get_general_tags(path):
                     lead = int(line.split(':',1)[1])
     return audio, lead
 
-def osu_to_simple(path, columns=8):
+def osu_to_chart(path, columns=8):
     out, note_id = [], 0
     lane_width = 512 / columns
     audio, offset = get_general_tags(path)
@@ -32,11 +44,15 @@ def osu_to_simple(path, columns=8):
             if not hitobjects or not line.strip():
                 continue
             x, y, t, typ, *_rest = line.split(',')[:5]
+            # for some reason, since osu!standard is a game where notes have 
+            # x and y positions, the notes in osu!mania (the vertical-scrolling
+            # rhythm game version) also have x positions.
+            # we divide them up into our lanes here
             lane = int(int(x) // lane_width) + 1          # 1-based (sorry)
             t = int(t)
             typ = int(typ)
             duration = 0
-            if typ & 128:                                 # hold
+            if typ & 128:                                 # hold note
                 end = int(line.split(',')[5].split(':')[0])
                 duration = end - t
             out.append(
@@ -45,10 +61,12 @@ def osu_to_simple(path, columns=8):
             )
             note_id += 1
     song_end = max(n['time'] + n['duration'] for n in out)
-    return {"notes": out, "end": song_end + 2000, "audio": audio, "offset": -offset} # end 2 secs after
+    return {"notes": out, "end": song_end + 2000,  # end 2 secs after
+            "audio": audio, "offset": -offset}
 
 if __name__ == "__main__":
-    chart = osu_to_simple(sys.argv[1])            # python osurip.py song.osu
+    # python osurip.py song.osu /path/to/output.chart
+    chart = osu_to_chart(sys.argv[1])            
     out_path = Path(sys.argv[2]).with_suffix('.chart')
 
     with open(out_path, "w", encoding="utf-8") as f:
